@@ -1,0 +1,5 @@
+from nat import Nat
+
+theorem hello_world(a: Nat, b: Nat) {
+    a < b implies a != b
+}
