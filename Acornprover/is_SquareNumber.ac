@@ -16,17 +16,17 @@ theorem n_plus_one(n: Nat){
 by{
     let m: Nat satisfy{
             m*m=n
-        }
+    }
     if n=0{
         n+1=1
         1*1=1
         is_SquareNumber(1)
     }
     else{
-        
         n>0
+        n>=1
+        m>=0
         m*m=n
-        m>0
         m>=1
         2*m>=2
         2*m>0

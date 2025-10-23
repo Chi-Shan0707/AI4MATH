@@ -1,0 +1,4 @@
+17 $in N
+-47 + 17 $in Z
+17.17 $in Q
+forall x Q => x $in R

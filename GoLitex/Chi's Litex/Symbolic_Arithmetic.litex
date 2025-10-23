@@ -1,0 +1,12 @@
+forall a, b, c R => (a + b) * c = a * c + b * c
+forall a, b, c R => (a - b) * c = a * c - b * c
+forall a, b, c R => a * (b - c) = a * b - a * c
+forall a, b, c R => a * (b + c) = a * b + a * c
+forall a, b, c, d R => (a + b) * (c + d) = a * c + a * d + b * c + b * d
+forall a, b, c, d R => (a - b) * (c - d) = a * c - a * d - b * c + b * d
+forall a, b, c, d R => (a - b) * (c + d) = a * c + a * d - b * c - b * d
+forall a, b, c, d R => (a + b) * (c - d) = a * c + b * c - a * d - b * d
+forall a, b, c R => (a + b) + c = a + (b + c)
+forall a, b, c R => (a - b) - c = a - (b + c)
+forall a, b, c R => (a * b) * c = a * (b * c)
+forall a, b R => a * b = b * a, a + b = b + a
