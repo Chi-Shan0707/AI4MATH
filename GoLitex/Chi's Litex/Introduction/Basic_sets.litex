@@ -2,3 +2,4 @@
 -47 + 17 $in Z
 17.17 $in Q
 forall x Q => x $in R
+forall x R => x*x $in R

@@ -1,0 +1,10 @@
+1=1         
+#  true
+let a R     
+# Successfully declared
+have b R   
+# declaration of objects
+prop p(x R)
+# definition of propositions
+know c>0   
+ # assertion of facts
