@@ -1,0 +1,41 @@
+from nat import Nat
+//from List import List
+numerals Nat
+
+// 阶乘函数定义
+define factorial(n: Nat) -> Nat {
+    match n {
+        Nat.0 {
+            1
+        }
+        Nat.suc(k) {
+            n * factorial(k)
+        }
+    }
+}
+theorem no_biggest_prime(p: Nat) {
+    p.is_prime implies exists(q: Nat) {
+        q.is_prime and p < q
+    }
+}by{
+    if exists (m: Nat){
+        m.is_prime and forall (q: Nat){
+            q.is_prime implies q <= m
+        }
+    }{
+        let t: Nat = factorial(m) + 1
+        if t.is_prime {
+                t.is_prime and t > p
+                false
+        }else{
+                q.is_composite = true
+                exists (d: Nat){
+                    d.is_prime and divides(d, q)
+                }
+                d <= m
+                divides(d, factorial(m))
+                not divides(d, factorial(m)+1)
+                not divides(d, q)
+                false
+    }
+}
