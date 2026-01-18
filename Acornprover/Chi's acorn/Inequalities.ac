@@ -1,0 +1,13 @@
+from real import Real
+// from nat import Nat
+// numerals Nat
+
+theorem inequality_0 (a : Real,  b: Real) {
+    (a*a+b*b)  >= a*b+ a*b 
+}by {
+       
+   
+    (a-b)*(a-b) >= Real.0
+    a*a - a*b-a*b + b*b >= Real.0
+    a*a + b*b >= Real.2*(a*b)
+}
