@@ -1,0 +1,57 @@
+from add_monoid import AddMonoid
+from neg import Neg
+
+/// An additive group is an additive monoid that also has inverses.
+typeclass A: AddGroup extends AddMonoid, Neg {
+    /// This is what "additive inverse" means.
+    inverse_right(a: A) {
+        a + -a = A.0
+    }
+}
+
+attributes A: AddGroup {
+    /// Subtracts one element from another using additive inverse.
+    define sub(self, other: A) -> A {
+        self + -other
+    }
+}
+
+// This direction is proven rather than assumed
+theorem inverse_left[A: AddGroup](a: A) {
+    -a + a = A.0
+} by {
+    (-a + a) + (-a + --a) = -a + --a
+}
+
+theorem inverse_inverse[A: AddGroup](a: A) {
+    --a = a
+} by {
+    a + -a + --a = --a
+}
+
+theorem left_cancel[A: AddGroup](a: A, b: A, c: A) {
+    a + b = a + c implies b = c
+} by {
+    -a + (a + b) = -a + a + b
+    -a + (a + c) = -a + a + c
+    -a + a = A.0
+    A.0 + b = b
+    A.0 + c = c
+}
+
+theorem right_cancel[A: AddGroup](a: A, b: A, c: A) {
+    b + a = c + a implies b = c
+} by {
+    b + a + -a = b + (a + -a)
+    c + a + -a = c + (a + -a)
+    a + -a = A.0
+    b + A.0 = b
+    c + A.0 = c
+}
+
+theorem inverse_add[A: AddGroup](a: A, b: A) {
+    -(a + b) = -b + -a
+} by {
+    -(a + b) + (a + b) = A.0
+    -(a + b) + a = -b
+}

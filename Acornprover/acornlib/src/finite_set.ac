@@ -1,0 +1,82 @@
+from nat import Nat
+from set import Set
+
+numerals Nat
+
+/// A finite set is a `Set` bundled with a finiteness proof.
+structure FiniteSet[T] {
+    /// The underlying set.
+    underlying_set: Set[T]
+} constraint {
+    underlying_set.is_finite
+}
+
+attributes FiniteSet[T] {
+    /// Access the underlying set.
+    define as_set(self) -> Set[T] {
+        self.underlying_set
+    }
+
+    /// Membership predicate.
+    define contains(self, x: T) -> Bool {
+        self.underlying_set.contains(x)
+    }
+
+    /// The empty finite set.
+    let empty: FiniteSet[T] = FiniteSet.new(Set[T].empty_set)
+
+    /// Insert preserves finiteness.
+    define insert(self, item: T) -> FiniteSet[T] {
+        FiniteSet.new(self.underlying_set.insert(item))
+    }
+
+    /// Remove preserves finiteness.
+    define remove(self, item: T) -> FiniteSet[T] {
+        FiniteSet.new(self.underlying_set.remove(item))
+    }
+
+    /// Subset relation lifted from sets.
+    define subset_eq(self, other: FiniteSet[T]) -> Bool {
+        self.underlying_set.subset(other.underlying_set)
+    }
+
+    /// Superset relation lifted from sets.
+    define superset_eq(self, other: FiniteSet[T]) -> Bool {
+        self.underlying_set.superset(other.underlying_set)
+    }
+
+    /// Union of finite sets.
+    define union(self, other: FiniteSet[T]) -> FiniteSet[T] {
+        FiniteSet.new(self.underlying_set.union(other.underlying_set))
+    }
+
+    /// Intersection of finite sets.
+    define intersection(self, other: FiniteSet[T]) -> FiniteSet[T] {
+        FiniteSet.new(self.underlying_set.intersection(other.underlying_set))
+    }
+
+    /// Difference of finite sets.
+    define difference(self, other: FiniteSet[T]) -> FiniteSet[T] {
+        FiniteSet.new(self.underlying_set.difference(other.underlying_set))
+    }
+
+    /// Disjointness predicate.
+    define is_disjoint(self, other: FiniteSet[T]) -> Bool {
+        self.underlying_set.is_disjoint(other.underlying_set)
+    }
+
+    /// Empty predicate.
+    define is_empty(self) -> Bool {
+        self.underlying_set.is_empty
+    }
+
+    /// Cardinality helper lifted from sets.
+    define cardinality_at_most(self, n: Nat) -> Bool {
+        self.underlying_set.cardinality_at_most(n)
+    }
+
+    /// True if the cardinality equals n.
+    define cardinality_is(self, n: Nat) -> Bool {
+        self.underlying_set.cardinality_is(n)
+    }
+}

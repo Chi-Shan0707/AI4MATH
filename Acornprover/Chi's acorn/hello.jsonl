@@ -1,0 +1,1 @@
+{"goal":"hello_world","proof":["a < a","not a < a or a <= a","a <= a","not a < a or not a <= a"]}

@@ -1,0 +1,598 @@
+/// Limit comparison utilities for real sequences.
+from nat import Nat
+from util import compose
+from real.real_base import Real, lte_add_right, lte_lt_trans, abs_neg, add_zero_right
+from real.real_series import triangle_ineq, seq_lte, neg_seq, const_seq, neg_seq_converges_to
+from real.real_seq import converges, converges_to, limit, add_seq, limit_add_seq, tail_bound
+from real.real_seq import converges_imp_converges_to, converges_to_imp_converges
+from real.real_seq import converges_to_unique
+from real.real_seq import abs_lt_imp_close_to_zero
+from real.prod_seq import prod_seq, limit_prod_seq
+from real.real_ring import mul_zero_right
+
+/// Two sequences converge and share the same limit.
+define same_limit(a: Nat -> Real, b: Nat -> Real) -> Bool {
+    converges(a) and converges(b) and limit(a) = limit(b)
+}
+
+/// A sequence converges with zero as its limit.
+define vanishes(a: Nat -> Real) -> Bool {
+    converges(a) and limit(a) = Real.0
+}
+
+/// The sequence obtained by taking absolute values termwise.
+define abs_seq(a: Nat -> Real, n: Nat) -> Real {
+    a(n).abs
+}
+
+/// Having the same limit is reflexive.
+theorem same_limit_refl(a: Nat -> Real) {
+    converges(a) implies same_limit(a, a)
+}
+
+/// Having the same limit is symmetric.
+theorem same_limit_symm(a: Nat -> Real, b: Nat -> Real) {
+    same_limit(a, b) implies same_limit(b, a)
+}
+
+/// Having the same limit is transitive.
+theorem same_limit_trans(a: Nat -> Real, b: Nat -> Real, c: Nat -> Real) {
+    same_limit(a, b) and same_limit(b, c) implies same_limit(a, c)
+}
+
+/// Bounding the absolute difference by the difference of arguments.
+theorem abs_abs_sub_le_abs_sub(a: Real, b: Real) {
+    (a.abs - b.abs).abs <= (a - b).abs
+} by {
+    let diff = a.abs - b.abs
+
+    triangle_ineq(a - b, b)
+    a.abs <= (a - b).abs + b.abs
+    lte_add_right(a.abs, (a - b).abs + b.abs, -b.abs)
+
+    triangle_ineq(b - a, a)
+    abs_neg(a - b)
+    b.abs <= (a - b).abs + a.abs
+    lte_add_right(b.abs, (a - b).abs + a.abs, -a.abs)
+
+    if diff.is_negative {
+        diff.abs = -diff
+        -diff = -(a.abs - b.abs)
+        -(a.abs - b.abs) = -a.abs + b.abs
+        -a.abs + b.abs = b.abs - a.abs
+        b.abs - a.abs <= (a - b).abs
+        diff.abs <= (a - b).abs
+    } else {
+    }
+}
+
+/// Absolute value applied twice is redundant.
+theorem abs_abs(a: Real) {
+    a.abs.abs = a.abs
+} by {
+    if a.is_negative {
+        abs_neg(a)
+    } else {
+    }
+}
+
+/// Closeness is preserved by taking absolute values.
+theorem abs_close_of_close(a: Real, b: Real, eps: Real) {
+    a.is_close(b, eps) implies a.abs.is_close(b.abs, eps)
+} by {
+    abs_abs_sub_le_abs_sub(a, b)
+    lte_lt_trans((a.abs - b.abs).abs, (a - b).abs, eps)
+}
+
+/// The absolute value sequence converges to the absolute value of the limit.
+theorem limit_abs_seq(a: Nat -> Real) {
+    converges(a) implies converges_to(abs_seq(a), limit(a).abs)
+} by {
+    let lim_abs = limit(a).abs
+    converges_imp_converges_to(a)
+    forall(eps: Real) {
+        if eps.is_positive {
+            let n: Nat satisfy {
+                tail_bound(a, limit(a), n, eps)
+            }
+            forall(i: Nat) {
+                if n <= i {
+                    abs_close_of_close(a(i), limit(a), eps)
+                    abs_seq(a)(i).is_close(lim_abs, eps)
+                }
+            }
+            tail_bound(abs_seq(a), lim_abs, n, eps)
+        }
+    }
+}
+
+/// Addition preserves the same-limit relation.
+theorem same_limit_add_seq(a: Nat -> Real, b: Nat -> Real, c: Nat -> Real, d: Nat -> Real) {
+    same_limit(a, b) and same_limit(c, d)
+    implies same_limit(add_seq(a, c), add_seq(b, d))
+} by {
+
+    limit_add_seq(a, c)
+    converges_to_imp_converges(add_seq(a, c), limit(a) + limit(c))
+
+    limit_add_seq(b, d)
+    converges_to_imp_converges(add_seq(b, d), limit(b) + limit(d))
+
+    converges_imp_converges_to(add_seq(a, c))
+    converges_to_unique(add_seq(a, c), limit(add_seq(a, c)), limit(a) + limit(c))
+
+    converges_imp_converges_to(add_seq(b, d))
+    converges_to_unique(add_seq(b, d), limit(add_seq(b, d)), limit(b) + limit(d))
+
+}
+
+/// Multiplication preserves the same-limit relation.
+theorem same_limit_prod_seq(a: Nat -> Real, b: Nat -> Real, c: Nat -> Real, d: Nat -> Real) {
+    same_limit(a, b) and same_limit(c, d)
+    implies same_limit(prod_seq(a, c), prod_seq(b, d))
+} by {
+
+    limit_prod_seq(a, c)
+    converges_to_imp_converges(prod_seq(a, c), limit(a) * limit(c))
+
+    limit_prod_seq(b, d)
+    converges_to_imp_converges(prod_seq(b, d), limit(b) * limit(d))
+
+    converges_imp_converges_to(prod_seq(a, c))
+    converges_to_unique(prod_seq(a, c), limit(prod_seq(a, c)), limit(a) * limit(c))
+
+    converges_imp_converges_to(prod_seq(b, d))
+    converges_to_unique(prod_seq(b, d), limit(prod_seq(b, d)), limit(b) * limit(d))
+
+}
+
+/// Absolute values preserve the same-limit relation.
+theorem same_limit_abs_seq(a: Nat -> Real, b: Nat -> Real) {
+    same_limit(a, b) implies same_limit(abs_seq(a), abs_seq(b))
+} by {
+
+    limit_abs_seq(a)
+    converges_to_imp_converges(abs_seq(a), limit(a).abs)
+
+    limit_abs_seq(b)
+    converges_to_imp_converges(abs_seq(b), limit(b).abs)
+
+    converges_imp_converges_to(abs_seq(a))
+    converges_to_unique(abs_seq(a), limit(abs_seq(a)), limit(a).abs)
+
+    converges_imp_converges_to(abs_seq(b))
+    converges_to_unique(abs_seq(b), limit(abs_seq(b)), limit(b).abs)
+
+}
+
+/// Vanishing is preserved by taking termwise absolute values.
+theorem vanishes_abs_seq(a: Nat -> Real) {
+    vanishes(a) implies vanishes(abs_seq(a))
+} by {
+    if vanishes(a) {
+        converges(a)
+        limit(a) = Real.0
+        limit(a).abs = Real.0
+        limit_abs_seq(a)
+        converges_to(abs_seq(a), limit(a).abs)
+        converges_to(abs_seq(a), Real.0)
+        converges(abs_seq(a))
+        converges_imp_converges_to(abs_seq(a))
+        converges_to_unique(abs_seq(a), limit(abs_seq(a)), Real.0)
+        limit(abs_seq(a)) = Real.0
+        vanishes(abs_seq(a))
+    }
+}
+
+/// A sequence dominated by a vanishing absolute value also vanishes.
+theorem vanishes_of_abs_lte_abs(a: Nat -> Real, b: Nat -> Real) {
+    seq_lte(abs_seq(a), abs_seq(b)) and vanishes(b)
+    implies vanishes(a)
+} by {
+
+    limit_abs_seq(b)
+    converges_to(abs_seq(b), Real.0)
+
+    forall(eps: Real) {
+        if eps.is_positive {
+            let n: Nat satisfy {
+                tail_bound(abs_seq(b), Real.0, n, eps)
+            }
+            forall(i: Nat) {
+                if n <= i {
+                    abs_abs(b(i))
+                    lte_lt_trans(abs_seq(a)(i), abs_seq(b)(i), eps)
+                    abs_lt_imp_close_to_zero(a(i), eps)
+                    a(i).is_close(Real.0, eps)
+                }
+            }
+            tail_bound(a, Real.0, n, eps)
+        }
+    }
+    converges_to(a, Real.0)
+    converges_to_imp_converges(a, Real.0)
+    converges_imp_converges_to(a)
+    converges_to_unique(a, limit(a), Real.0)
+}
+
+/// Adding a vanishing sequence preserves limits.
+theorem same_limit_add_vanish_right(a: Nat -> Real, b: Nat -> Real) {
+    converges(a) and vanishes(b)
+    implies same_limit(add_seq(a, b), a)
+} by {
+
+    limit_add_seq(a, b)
+    converges_to_imp_converges(add_seq(a, b), limit(a) + limit(b))
+
+    converges_imp_converges_to(add_seq(a, b))
+    converges_to_unique(add_seq(a, b), limit(add_seq(a, b)), limit(a) + limit(b))
+
+    add_zero_right(limit(a))
+}
+
+/// Multiplying by a vanishing sequence yields another vanishing sequence.
+theorem vanishes_prod_seq(a: Nat -> Real, b: Nat -> Real) {
+    converges(a) and vanishes(b)
+    implies vanishes(prod_seq(a, b))
+} by {
+
+    limit_prod_seq(a, b)
+    mul_zero_right(limit(a))
+    converges_to_imp_converges(prod_seq(a, b), Real.0)
+    converges_imp_converges_to(prod_seq(a, b))
+    converges_to_unique(prod_seq(a, b), limit(prod_seq(a, b)), Real.0)
+}
+
+/// If two sequences converge to the same limit, their difference vanishes.
+theorem same_limit_imp_vanishes(a: Nat -> Real, b: Nat -> Real) {
+    same_limit(a, b) implies vanishes(add_seq(a, neg_seq(b)))
+} by {
+    if same_limit(a, b) {
+        converges(a)
+        converges(b)
+        let diff = add_seq(a, neg_seq(b))
+
+        neg_seq_converges_to(b)
+        converges_to_imp_converges(neg_seq(b), -limit(b))
+        converges_imp_converges_to(neg_seq(b))
+        converges_to_unique(neg_seq(b), limit(neg_seq(b)), -limit(b))
+        limit(neg_seq(b)) = -limit(b)
+
+        limit_add_seq(a, neg_seq(b))
+        converges_to_imp_converges(diff, limit(a) + limit(neg_seq(b)))
+
+        limit(a) + limit(neg_seq(b)) = limit(a) + -limit(b)
+
+        converges(diff)
+        converges_imp_converges_to(diff)
+        converges_to(diff, limit(diff))
+        converges_to_unique(diff, limit(diff), limit(a) + limit(neg_seq(b)))
+        limit(diff) = limit(a) + limit(neg_seq(b))
+        limit(diff) = limit(a) + -limit(b)
+
+        limit(a) = limit(b)
+        limit(a) + -limit(b) = limit(a) + -limit(a)
+        add_zero_right(limit(a))
+        limit(a) + -limit(a) = Real.0
+        limit(diff) = Real.0
+
+        converges(diff)
+        vanishes(diff)
+        diff = add_seq(a, neg_seq(b))
+        vanishes(add_seq(a, neg_seq(b)))
+    }
+}
+
+/// Squeeze theorem for vanishing: if 0 <= a <= b and b vanishes, then a vanishes.
+theorem vanishes_squeeze(a: Nat -> Real, b: Nat -> Real) {
+    seq_lte(const_seq(Real.0), a) and seq_lte(a, b) and vanishes(b)
+    implies vanishes(a)
+} by {
+    if seq_lte(const_seq(Real.0), a) and seq_lte(a, b) {
+        forall(n: Nat) {
+            const_seq(Real.0, n) = Real.0
+            Real.0 <= a(n)
+            a(n) <= b(n)
+            abs_seq(a)(n) = a(n).abs
+            abs_seq(b)(n) = b(n).abs
+            not a(n).is_negative
+            a(n).abs = a(n)
+            b(n) <= b(n).abs
+            a(n) <= b(n).abs
+            a(n).abs <= b(n).abs
+            abs_seq(a)(n) <= abs_seq(b)(n)
+        }
+        seq_lte(abs_seq(a), abs_seq(b))
+    }
+    vanishes_of_abs_lte_abs(a, b)
+}
+
+/// Squeeze theorem for convergence: if a <= b <= c and a, c have the same limit, then b has that limit too.
+theorem squeeze_theorem(a: Nat -> Real, b: Nat -> Real, c: Nat -> Real) {
+    seq_lte(a, b) and seq_lte(b, c) and same_limit(a, c)
+    implies same_limit(a, b)
+} by {
+    if seq_lte(a, b) and seq_lte(b, c) and same_limit(a, c) {
+        let diff_ca = add_seq(c, neg_seq(a))
+        let diff_ba = add_seq(b, neg_seq(a))
+
+        same_limit_imp_vanishes(a, c)
+        vanishes(diff_ca)
+
+        forall(n: Nat) {
+            diff_ba(n) = add_seq(b, neg_seq(a))(n)
+            add_seq(b, neg_seq(a))(n) = b(n) + neg_seq(a)(n)
+            neg_seq(a)(n) = -a(n)
+            b(n) + -a(n) = b(n) - a(n)
+            diff_ba(n) = b(n) - a(n)
+
+            diff_ca(n) = add_seq(c, neg_seq(a))(n)
+            add_seq(c, neg_seq(a))(n) = c(n) + neg_seq(a)(n)
+            c(n) + -a(n) = c(n) - a(n)
+            diff_ca(n) = c(n) - a(n)
+
+            a(n) <= b(n)
+            lte_add_right(a(n), b(n), -a(n))
+            Real.0 <= b(n) - a(n)
+            Real.0 <= diff_ba(n)
+
+            b(n) <= c(n)
+            lte_add_right(b(n), c(n), -a(n))
+            b(n) - a(n) <= c(n) - a(n)
+            diff_ba(n) <= diff_ca(n)
+        }
+
+        forall(n: Nat) {
+            diff_ba(n) = add_seq(b, neg_seq(a))(n)
+            add_seq(b, neg_seq(a))(n) = b(n) + neg_seq(a)(n)
+            neg_seq(a)(n) = -a(n)
+            b(n) + -a(n) = b(n) - a(n)
+            diff_ba(n) = b(n) - a(n)
+
+            a(n) <= b(n)
+            lte_add_right(a(n), b(n), -a(n))
+            Real.0 <= b(n) - a(n)
+            Real.0 <= diff_ba(n)
+
+            const_seq(Real.0)(n) = Real.0
+            const_seq(Real.0)(n) <= diff_ba(n)
+        }
+        seq_lte(const_seq(Real.0), diff_ba)
+
+        forall(n: Nat) {
+            diff_ba(n) <= diff_ca(n)
+        }
+        seq_lte(diff_ba, diff_ca)
+
+        vanishes_squeeze(diff_ba, diff_ca)
+        vanishes(diff_ba)
+
+        converges(diff_ba)
+        limit(diff_ba) = Real.0
+
+        converges(a)
+        limit_add_seq(a, diff_ba)
+        converges_to_imp_converges(add_seq(a, diff_ba), limit(a) + limit(diff_ba))
+        limit(a) + limit(diff_ba) = limit(a) + Real.0
+        add_zero_right(limit(a))
+        limit(a) + Real.0 = limit(a)
+
+        forall(n: Nat) {
+            add_seq(a, diff_ba)(n) = a(n) + diff_ba(n)
+
+            diff_ba(n) = add_seq(b, neg_seq(a))(n)
+            add_seq(b, neg_seq(a))(n) = b(n) + neg_seq(a)(n)
+            neg_seq(a)(n) = -a(n)
+            b(n) + -a(n) = b(n) - a(n)
+            diff_ba(n) = b(n) - a(n)
+
+            a(n) + (b(n) - a(n)) = b(n)
+            add_seq(a, diff_ba)(n) = b(n)
+        }
+        add_seq(a, diff_ba) = b
+
+        converges(b)
+        converges_imp_converges_to(b)
+        converges_imp_converges_to(add_seq(a, diff_ba))
+        converges_to_unique(b, limit(b), limit(a))
+        limit(b) = limit(a)
+
+        same_limit(a, b)
+    }
+}
+
+/// True if f: Nat -> Nat tends to infinity (i.e., eventually exceeds any bound).
+define tends_to_infinity(f: Nat -> Nat) -> Bool {
+    forall(big_n: Nat) {
+        exists(m: Nat) {
+            forall(n: Nat) {
+                m <= n implies big_n <= f(n)
+            }
+        }
+    }
+}
+
+/// True if f is nondecreasing.
+define is_nondecreasing_nat(f: Nat -> Nat) -> Bool {
+    forall(i: Nat, j: Nat) {
+        i <= j implies f(i) <= f(j)
+    }
+}
+
+/// True if f is unbounded (i.e., not bounded above by any fixed value).
+define is_unbounded(f: Nat -> Nat) -> Bool {
+    forall(bound: Nat) {
+        exists(n: Nat) {
+            bound < f(n)
+        }
+    }
+}
+
+/// A nondecreasing unbounded function tends to infinity.
+theorem nondecreasing_unbounded_tends_to_infinity(f: Nat -> Nat) {
+    is_nondecreasing_nat(f) and is_unbounded(f)
+    implies
+    tends_to_infinity(f)
+} by {
+    forall(big_n: Nat) {
+        let m: Nat satisfy {
+            big_n < f(m)
+        }
+
+        forall(n: Nat) {
+            if m <= n {
+                f(m) <= f(n)
+                big_n < f(m)
+                big_n <= f(n)
+            }
+        }
+    }
+}
+
+/// If a sequence converges and f tends to infinity, then the composed sequence converges to the same limit.
+theorem converges_compose_tends_to_infinity(a: Nat -> Real, f: Nat -> Nat) {
+    converges(a) and tends_to_infinity(f)
+    implies
+    converges_to(compose(a, f), limit(a))
+} by {
+    converges_imp_converges_to(a)
+    let lim = limit(a)
+
+    forall(eps: Real) {
+        if eps.is_positive {
+            let big_n: Nat satisfy {
+                tail_bound(a, lim, big_n, eps)
+            }
+
+            let m: Nat satisfy {
+                forall(n: Nat) {
+                    m <= n implies big_n <= f(n)
+                }
+            }
+
+            forall(n: Nat) {
+                if m <= n {
+                    big_n <= f(n)
+                    a(f(n)).is_close(lim, eps)
+                    compose(a, f)(n) = a(f(n))
+                    compose(a, f)(n).is_close(lim, eps)
+                }
+            }
+
+            tail_bound(compose(a, f), lim, m, eps)
+        }
+    }
+
+    converges_to(compose(a, f), lim)
+}
+
+/// If a sequence converges and f is nondecreasing and unbounded, then compose(a, f) converges to the same limit.
+theorem converges_compose_nondecreasing_unbounded(a: Nat -> Real, f: Nat -> Nat) {
+    converges(a) and is_nondecreasing_nat(f) and is_unbounded(f)
+    implies
+    converges_to(compose(a, f), limit(a))
+} by {
+    nondecreasing_unbounded_tends_to_infinity(f)
+    converges_compose_tends_to_infinity(a, f)
+}
+
+/// The function n -> k * n is nondecreasing when k >= 1.
+theorem mul_nondecreasing(k: Nat) {
+    Nat.1 <= k implies is_nondecreasing_nat(k.mul)
+} by {
+    forall(i: Nat, j: Nat) {
+        if i <= j {
+            k * i <= k * j
+        }
+    }
+}
+
+/// The function n -> k * n is unbounded when k >= 1.
+theorem mul_unbounded(k: Nat) {
+    Nat.1 <= k implies is_unbounded(k.mul)
+} by {
+    forall(bound: Nat) {
+        if Nat.1 <= k {
+            let n = bound.suc
+            k * n >= k
+            k * n >= Nat.1
+            n * Nat.1 = n
+            n * Nat.1 <= n * k
+            n <= k * n
+            bound < n
+            bound.suc <= k * n
+            k * n > bound
+            k.mul(n) = k * n
+            bound < k.mul(n)
+        }
+    }
+}
+
+/// The function n -> k + n is nondecreasing.
+theorem add_nondecreasing(k: Nat) {
+    is_nondecreasing_nat(k.add)
+} by {
+    forall(i: Nat, j: Nat) {
+        if i <= j {
+            k + i <= k + j
+        }
+    }
+}
+
+/// The function n -> k + n is unbounded.
+theorem add_unbounded(k: Nat) {
+    is_unbounded(k.add)
+} by {
+    forall(bound: Nat) {
+        let n: Nat satisfy {
+            bound < k + n
+        }
+        k.add(n) = k + n
+        bound < k.add(n)
+    }
+}
+
+/// If a sequence converges and k >= 1, then taking every k-th element preserves convergence.
+theorem converges_compose_mul(a: Nat -> Real, k: Nat) {
+    converges(a) and Nat.1 <= k
+    implies
+    converges_to(compose(a, k.mul), limit(a))
+} by {
+    mul_nondecreasing(k)
+    mul_unbounded(k)
+    converges_compose_nondecreasing_unbounded(a, k.mul)
+}
+
+/// If a sequence converges, then any tail (starting from index k) converges to the same limit.
+theorem converges_compose_add(a: Nat -> Real, k: Nat) {
+    converges(a)
+    implies
+    converges_to(compose(a, k.add), limit(a))
+} by {
+    add_nondecreasing(k)
+    add_unbounded(k)
+    converges_compose_nondecreasing_unbounded(a, k.add)
+}
+
+/// If a sequence converges, then taking every other element (even indices) preserves convergence.
+theorem converges_compose_double(a: Nat -> Real) {
+    converges(a)
+    implies
+    converges_to(compose(a, Nat.2.mul), limit(a))
+} by {
+    Nat.1 <= Nat.2
+    converges_compose_mul(a, Nat.2)
+}
+
+/// If a sequence converges, then its successor-shifted version converges to the same limit.
+/// In other words, the tail starting from index 1 has the same limit as the original sequence.
+theorem converges_compose_suc(a: Nat -> Real) {
+    converges(a)
+    implies
+    converges_to(compose(a, Nat.suc), limit(a))
+} by {
+    // Nat.suc = Nat.1.add, so we can use converges_compose_add
+    converges_compose_add(a, Nat.1)
+    compose(a, Nat.1.add) = compose(a, Nat.suc)
+    converges_to(compose(a, Nat.suc), limit(a))
+}

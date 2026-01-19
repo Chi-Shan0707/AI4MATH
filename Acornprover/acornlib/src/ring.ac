@@ -1,0 +1,91 @@
+from nat import Nat
+from list import List, sum, map
+from add_comm_group import AddCommGroup
+from semiring import Semiring
+
+/// A ring is a structure with two operations (addition and multiplication) where addition forms an abelian group,
+/// multiplication forms a monoid, and multiplication distributes over addition.
+typeclass Ring extends Semiring, AddCommGroup
+
+theorem mul_zero_left[R: Ring](a: R) {
+    R.0 * a = R.0
+}
+
+theorem mul_zero_right[R: Ring](a: R) {
+    a * R.0 = R.0
+}
+
+theorem mul_neg_left[R: Ring](a: R, b: R) {
+    -a * b = -(a * b)
+} by {
+    -a * b + a * b = R.0
+}
+
+theorem mul_neg_right[R: Ring](a: R, b: R) {
+    a * -b = -(a * b)
+} by {
+    a * -b + a * b = R.0
+}
+
+theorem mul_neg_neg[R: Ring](a: R, b: R) {
+    -a * -b = a * b
+}
+
+theorem mul_neg_one_left[R: Ring](a: R) {
+    -R.1 * a = -a
+}
+
+theorem mul_neg_one_right[R: Ring](a: R) {
+    a * -R.1 = -a
+}
+
+theorem geometric_sum[R: Ring](a: R, n: Nat) {
+    (a + -R.1) * sum(map(n.range, a.pow)) = a.pow(n) + -R.1
+} by {
+    define f(x: Nat) -> Bool {
+        (a + -R.1) * sum(map(x.range, a.pow)) = a.pow(x) + -R.1
+    }
+
+    // Base case: n = 0
+    // range(0) = []
+    // sum(map([], a.pow)) = 0
+    // (a + -R.1) * 0 = 0
+    // pow(a, 0) + -R.1 = R.1 + -R.1 = 0
+    f(Nat.0)
+
+    // Inductive step
+    forall(x: Nat) {
+        if f(x) {
+            // Induction hypothesis: (a + -R.1) * sum(map(x.range, a.pow)) = a.pow(x) + -R.1
+
+            // range(x.suc) = range(x).append(x)
+
+            // sum of appended list
+
+            // Left side: (a + -R.1) * sum(map(range(x.suc), a.pow))
+
+            // Use induction hypothesis
+
+            // Simplify (a + -R.1) * a.pow(x)
+            (a + -R.1) * a.pow(x) = a.pow(x.suc) + -a.pow(x)
+
+            // Combine terms
+            -a.pow(x) + (a.pow(x) + -R.1 + a.pow(x.suc)) = -a.pow(x) + (a.pow(x) + -R.1) + a.pow(x.suc)
+            -a.pow(x) + (a.pow(x) + -R.1) = -a.pow(x) + a.pow(x) + -R.1
+            -a.pow(x) + (a.pow(x) + -R.1 + a.pow(x.suc)) = a.pow(x) + -R.1 + a.pow(x.suc) + -a.pow(x)
+            -a.pow(x) + a.pow(x) = R.0
+            R.0 + -R.1 = -R.1
+            a.pow(x) + -R.1 + a.pow(x.suc) + -a.pow(x) = -R.1 + a.pow(x.suc)
+
+            // Therefore
+            (a + -R.1) * sum(map(x.range, a.pow)) = a.pow(x) + -R.1
+            sum(map(x.range, a.pow)) = lib(list.list_sum).partial[R](a.pow, x)
+            sum(map(x.suc.range, a.pow)) = lib(list.list_sum).partial[R](a.pow, x.suc)
+            lib(list.list_sum).partial[R](a.pow, x) + a.pow(x) = lib(list.list_sum).partial[R](a.pow, x.suc)
+            (a + -R.1) * lib(list.list_sum).partial[R](a.pow, x) + (a + -R.1) * a.pow(x) = (a + -R.1) * (lib(list.list_sum).partial[R](a.pow, x) + a.pow(x))
+            -R.1 + a.pow(x.suc) = a.pow(x.suc) + -R.1
+            (a + -R.1) * sum(map(x.suc.range, a.pow)) = a.pow(x.suc) + -R.1
+        }
+    }
+
+}

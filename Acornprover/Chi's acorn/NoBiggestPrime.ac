@@ -2,10 +2,11 @@ from nat import Nat
 //from List import List
 numerals Nat
 
+
 // 阶乘函数定义
 define factorial(n: Nat) -> Nat {
     match n {
-        Nat.0 {
+        Nat.0{
             1
         }
         Nat.suc(k) {

@@ -1,0 +1,769 @@
+from real.real_ring import Real, lt_mul_neg_left
+from real.real_field import mul_left_cancel, div_le_of_mul_le, mul_le_mul_pos_left, mul_div_cancel
+from real.real_set import ub_imp_lub
+from real.real_series import is_increasing, image, is_upper_bound, monotone_convergence_principle
+from real.real_seq import converges, limit
+from set import Set
+from nat import Nat
+
+// This file defines supremum-related concepts for sets of real numbers.
+
+/// True if the set s is nonempty.
+define is_nonempty(s: Set[Real]) -> Bool {
+    exists(x: Real) {
+        s.contains(x)
+    }
+}
+
+/// True if b is an upper bound for the set s.
+define is_set_upper_bound(s: Set[Real], b: Real) -> Bool {
+    forall(x: Real) {
+        s.contains(x) implies x <= b
+    }
+}
+
+/// True if the set s has an upper bound.
+define has_upper_bound(s: Set[Real]) -> Bool {
+    exists(b: Real) {
+        is_set_upper_bound(s, b)
+    }
+}
+
+/// True if b is a lower bound for the set s.
+define is_set_lower_bound(s: Set[Real], b: Real) -> Bool {
+    forall(x: Real) {
+        s.contains(x) implies b <= x
+    }
+}
+
+/// True if sup is the supremum (least upper bound) of the set s.
+define is_set_supremum(s: Set[Real], sup: Real) -> Bool {
+    is_set_upper_bound(s, sup) and
+    forall(b: Real) {
+        is_set_upper_bound(s, b) implies sup <= b
+    }
+}
+
+/// True if inf is the infimum (greatest lower bound) of the set s.
+define is_set_infimum(s: Set[Real], inf: Real) -> Bool {
+    is_set_lower_bound(s, inf) and
+    forall(b: Real) {
+        is_set_lower_bound(s, b) implies b <= inf
+    }
+}
+
+/// Every nonempty set of real numbers that is bounded above has a supremum.
+/// This is the completeness property of the real numbers.
+theorem completeness(s: Set[Real]) {
+    is_nonempty(s) and has_upper_bound(s)
+    implies
+    exists(sup: Real) {
+        is_set_supremum(s, sup)
+    }
+} by {
+    let ub: Real satisfy {
+        is_set_upper_bound(s, ub)
+    }
+
+    // Convert Set[Real] to Real -> Bool representation
+    let f = s.contains
+
+    // f is nonempty
+    let x: Real satisfy {
+        s.contains(x)
+    }
+    f(x)
+
+    // ub is an upper bound for f
+    forall(y: Real) {
+        if f(y) {
+            y <= ub
+        }
+    }
+    ub.is_set_upper_bound(f)
+
+    // Apply the completeness theorem from real_set.ac
+    let lub: Real satisfy {
+        lub.is_set_least_upper_bound(f)
+    }
+
+    // Show that lub is the supremum of s
+    // Part 1: lub is an upper bound of s
+    forall(y: Real) {
+        if s.contains(y) {
+            f(y)
+            y <= lub
+        }
+    }
+    is_set_upper_bound(s, lub)
+
+    // Part 2: lub is the least upper bound
+    forall(b: Real) {
+        if is_set_upper_bound(s, b) {
+            // Show that b is an upper bound for f
+            forall(y: Real) {
+                if f(y) {
+                    s.contains(y)
+                    y <= b
+                }
+            }
+            b.is_set_upper_bound(f)
+
+            // Therefore lub <= b
+            lub <= b
+        }
+    }
+
+    is_set_supremum(s, lub)
+}
+
+/// If S ⊆ T, S is nonempty, and sup T exists, then sup S exists.
+theorem supremum_exists_for_subset(s: Set[Real], t: Set[Real], sup_t: Real) {
+    s.subset(t) and is_nonempty(s) and is_set_supremum(t, sup_t)
+    implies
+    exists(sup_s: Real) {
+        is_set_supremum(s, sup_s)
+    }
+} by {
+    // sup_t is an upper bound for s
+    forall(x: Real) {
+        if s.contains(x) {
+            t.contains(x)
+            x <= sup_t
+        }
+    }
+    is_set_upper_bound(s, sup_t)
+    has_upper_bound(s)
+
+    // By completeness, s has a supremum
+    let sup_s: Real satisfy {
+        is_set_supremum(s, sup_s)
+    }
+}
+
+/// If S ⊆ T, then sup S ≤ sup T.
+theorem supremum_subset_le(s: Set[Real], t: Set[Real], sup_s: Real, sup_t: Real) {
+    s.subset(t) and is_set_supremum(s, sup_s) and is_set_supremum(t, sup_t)
+    implies
+    sup_s <= sup_t
+} by {
+    // sup_t is an upper bound for t, hence for s
+    forall(x: Real) {
+        if s.contains(x) {
+            t.contains(x)
+            x <= sup_t
+        }
+    }
+    is_set_upper_bound(s, sup_t)
+
+    // sup_s is the least upper bound of s
+    sup_s <= sup_t
+}
+
+/// If S and T have suprema, then sup(S ∪ T) = max(sup S, sup T).
+theorem supremum_union_max(s: Set[Real], t: Set[Real], sup_s: Real, sup_t: Real) {
+    is_set_supremum(s, sup_s) and is_set_supremum(t, sup_t)
+    implies
+    is_set_supremum(s.union(t), sup_s.max(sup_t))
+} by {
+    let m = sup_s.max(sup_t)
+
+    // Part 1: m is an upper bound for s ∪ t
+    forall(x: Real) {
+        if s.union(t).contains(x) {
+            // x is in s or in t
+            if s.contains(x) {
+                x <= sup_s
+                m >= sup_s
+                sup_s <= m
+                x <= m
+            } else {
+                t.contains(x)
+                x <= sup_t
+                m >= sup_t
+                sup_t <= m
+                x <= m
+            }
+        }
+    }
+    is_set_upper_bound(s.union(t), m)
+
+    // Part 2: m is the least upper bound for s ∪ t
+    forall(b: Real) {
+        if is_set_upper_bound(s.union(t), b) {
+            // b is an upper bound for s ∪ t, so it's an upper bound for s
+            forall(x: Real) {
+                if s.contains(x) {
+                    s.union(t).contains(x)
+                    x <= b
+                }
+            }
+            is_set_upper_bound(s, b)
+
+            // Since sup_s is the least upper bound of s
+            sup_s <= b
+
+            // Similarly, b is an upper bound for t
+            forall(x: Real) {
+                if t.contains(x) {
+                    s.union(t).contains(x)
+                    x <= b
+                }
+            }
+            is_set_upper_bound(t, b)
+
+            // Since sup_t is the least upper bound of t
+            sup_t <= b
+
+            // Therefore m = max(sup_s, sup_t) ≤ b
+            // By case analysis: m equals either sup_s or sup_t
+            if m = sup_s {
+                m <= b
+            } else {
+                m = sup_t
+                m <= b
+            }
+        }
+    }
+
+    is_set_supremum(s.union(t), m)
+}
+
+/// The setwise addition of two sets S and T is the set { s+t : s∈S, t∈T }.
+define setwise_add_contains(s: Set[Real], t: Set[Real], x: Real) -> Bool {
+    exists(a: Real, b: Real) {
+        s.contains(a) and t.contains(b) and x = a + b
+    }
+}
+
+/// Returns the setwise addition of two sets.
+define setwise_add(s: Set[Real], t: Set[Real]) -> Set[Real] {
+    Set[Real].new(setwise_add_contains(s, t))
+}
+
+/// If S and T have suprema, then sup(S + T) = sup S + sup T.
+theorem supremum_setwise_add(s: Set[Real], t: Set[Real], sup_s: Real, sup_t: Real) {
+    is_set_supremum(s, sup_s) and is_set_supremum(t, sup_t)
+    implies
+    is_set_supremum(setwise_add(s, t), sup_s + sup_t)
+} by {
+    let sum_set = setwise_add(s, t)
+    let sum_sup = sup_s + sup_t
+
+    // Part 1: sum_sup is an upper bound for sum_set
+    forall(x: Real) {
+        if sum_set.contains(x) {
+            // x is in the setwise sum, so x = a + b for some a ∈ s, b ∈ t
+            setwise_add_contains(s, t, x)
+            let (a: Real, b: Real) satisfy {
+                s.contains(a) and t.contains(b) and x = a + b
+            }
+
+            // Since sup_s is an upper bound for s, we have a ≤ sup_s
+            a <= sup_s
+
+            // Since sup_t is an upper bound for t, we have b ≤ sup_t
+            b <= sup_t
+
+            // Therefore x = a + b ≤ sup_s + sup_t
+            a + b <= sup_s + sup_t
+            x = a + b
+            x <= sum_sup
+        }
+    }
+    is_set_upper_bound(sum_set, sum_sup)
+
+    // Part 2: sum_sup is the least upper bound for sum_set
+    forall(ub: Real) {
+        if is_set_upper_bound(sum_set, ub) {
+            // Show that sup_s + sup_t ≤ ub
+            // Strategy: show that for all a ∈ s, a ≤ ub - sup_t
+            forall(a: Real) {
+                if s.contains(a) {
+                    // For any t_elem ∈ t, we have a + t_elem ∈ sum_set
+                    // Therefore a + t_elem ≤ ub
+                    forall(t_elem: Real) {
+                        if t.contains(t_elem) {
+                            sum_set.contains(a + t_elem)
+                            a + t_elem <= ub
+                            t_elem + a <= ub
+                            t_elem <= ub - a
+                        }
+                    }
+
+                    // Since t_elem ≤ ub - a for all t_elem ∈ t,
+                    // and sup_t is the least upper bound of t,
+                    // we have sup_t ≤ ub - a
+                    is_set_upper_bound(t, ub - a)
+                    sup_t <= ub - a
+
+                    // Therefore a ≤ ub - sup_t
+                    sup_t + a <= ub - a + a
+                    ub - a + a = ub
+                    sup_t + a <= ub
+                    a + sup_t <= ub
+                    a <= ub - sup_t
+                }
+            }
+
+            // Since a ≤ ub - sup_t for all a ∈ s, and sup_s is the least upper bound,
+            // we have sup_s ≤ ub - sup_t
+            is_set_upper_bound(s, ub - sup_t)
+            sup_s <= ub - sup_t
+
+            // Therefore sup_s + sup_t ≤ ub
+            sum_sup <= ub
+        }
+    }
+
+    is_set_supremum(sum_set, sum_sup)
+}
+
+/// The negation of a set S is the set { -x : x ∈ S }.
+define negate_set_contains(s: Set[Real], x: Real) -> Bool {
+    exists(a: Real) {
+        s.contains(a) and x = -a
+    }
+}
+
+/// The negation of a set S.
+define negate_set(s: Set[Real]) -> Set[Real] {
+    Set[Real].new(negate_set_contains(s))
+}
+
+/// The supremum of S equals the negative of the infimum of -S.
+theorem supremum_infimum_duality(s: Set[Real], sup_s: Real) {
+    is_set_supremum(s, sup_s)
+    implies
+    is_set_infimum(negate_set(s), -sup_s)
+} by {
+    let neg_s = negate_set(s)
+    let inf_neg = -sup_s
+
+    // Part 1: inf_neg is a lower bound for neg_s
+    forall(x: Real) {
+        if neg_s.contains(x) {
+            // x is in -s, so x = -a for some a ∈ s
+            negate_set_contains(s, x)
+            let a: Real satisfy {
+                s.contains(a) and x = -a
+            }
+
+            // Since sup_s is an upper bound for s, we have a ≤ sup_s
+            a <= sup_s
+
+            // Therefore x = -a ≥ -sup_s
+            -a >= -sup_s
+            x >= inf_neg
+        }
+    }
+    is_set_lower_bound(neg_s, inf_neg)
+
+    // Part 2: inf_neg is the greatest lower bound for neg_s
+    forall(lb: Real) {
+        if is_set_lower_bound(neg_s, lb) {
+            // Show that lb ≤ -sup_s, i.e., sup_s ≤ -lb
+            // Strategy: show that -lb is an upper bound for s
+            forall(a: Real) {
+                if s.contains(a) {
+                    // -a is in neg_s
+                    neg_s.contains(-a)
+                    // Since lb is a lower bound for neg_s
+                    -a >= lb
+                    // Therefore a ≤ -lb
+                    a <= -lb
+                }
+            }
+
+            // -lb is an upper bound for s
+            is_set_upper_bound(s, -lb)
+
+            // Since sup_s is the least upper bound
+            sup_s <= -lb
+
+            // Therefore lb ≤ -sup_s
+            lb <= -sup_s
+        }
+    }
+
+    is_set_infimum(neg_s, inf_neg)
+}
+
+/// True if x is in the scalar multiple of s by alpha.
+define scalar_contains(alpha: Real, s: Set[Real], x: Real) -> Bool {
+    exists(a: Real) {
+        s.contains(a) and x = alpha * a
+    }
+}
+
+/// The scalar multiplication of a set S by a scalar α is the set { α·s : s∈S }.
+define scalar_mult(alpha: Real, s: Set[Real]) -> Set[Real] {
+    Set[Real].new(scalar_contains(alpha, s))
+}
+
+/// Membership in scalar_mult is equivalent to scalar_contains.
+theorem scalar_mult_contains_iff(alpha: Real, s: Set[Real], x: Real) {
+    scalar_mult(alpha, s).contains(x) = scalar_contains(alpha, s, x)
+}
+
+/// If x is in scalar_mult(alpha, s), then there exists a witness a in s.
+theorem scalar_mult_witness(alpha: Real, s: Set[Real], x: Real) {
+    scalar_mult(alpha, s).contains(x)
+    implies
+    exists(a: Real) {
+        s.contains(a) and x = alpha * a
+    }
+} by {
+    scalar_mult(alpha, s).contains(x) = scalar_contains(alpha, s, x)
+}
+
+/// If a is in s, then alpha * a is in scalar_mult(alpha, s).
+theorem scalar_mult_membership(alpha: Real, s: Set[Real], a: Real) {
+    s.contains(a)
+    implies
+    scalar_mult(alpha, s).contains(alpha * a)
+} by {
+    scalar_mult(alpha, s).contains(alpha * a) = scalar_contains(alpha, s, alpha * a)
+}
+
+/// If alpha >= 0, sup_s is the supremum of s, and for all a in s we have alpha * a <= ub,
+/// then alpha * sup_s <= ub.
+theorem mul_supremum_le(alpha: Real, s: Set[Real], sup_s: Real, ub: Real) {
+    alpha >= Real.0 and is_set_supremum(s, sup_s) and is_nonempty(s) and
+    (forall(a: Real) { s.contains(a) implies alpha * a <= ub })
+    implies
+    alpha * sup_s <= ub
+} by {
+    if alpha = Real.0 {
+        // When α = 0, α·sup_s = 0
+        alpha * sup_s = Real.0
+
+        // We need to show 0 <= ub
+        // Since s is nonempty, pick any element a from s
+        let a: Real satisfy { s.contains(a) }
+        alpha * a <= ub
+        Real.0 <= ub
+        alpha * sup_s <= ub
+    } else {
+        // When α > 0
+        alpha > Real.0
+        alpha != Real.0
+
+        // For all a ∈ s, we have a ≤ ub/α
+        forall(a: Real) {
+            if s.contains(a) {
+                alpha * a <= ub
+                // Apply div_le_of_mul_le
+                div_le_of_mul_le(a, alpha, ub)
+                a <= ub / alpha
+            }
+        }
+
+        // So ub/α is an upper bound of s
+        is_set_upper_bound(s, ub / alpha)
+
+        // Since sup_s is the least upper bound
+        sup_s <= ub / alpha
+
+        // Multiply both sides by α
+        mul_le_mul_pos_left(sup_s, ub / alpha, alpha)
+        alpha * sup_s <= alpha * (ub / alpha)
+
+        // Simplify: α * (ub/α) = ub
+        mul_div_cancel(ub, alpha)
+        alpha * (ub / alpha) = ub
+
+        alpha * sup_s <= ub
+    }
+}
+
+/// For α ≥ 0, sup(αS) = α·sup S.
+theorem supremum_scalar_mult(alpha: Real, s: Set[Real], sup_s: Real) {
+    alpha >= Real.0 and is_nonempty(s) and is_set_supremum(s, sup_s)
+    implies
+    is_set_supremum(scalar_mult(alpha, s), alpha * sup_s)
+} by {
+    let scaled_set = scalar_mult(alpha, s)
+    let scaled_sup = alpha * sup_s
+
+    // Part 1: scaled_sup is an upper bound for scaled_set
+    forall(x: Real) {
+        if scaled_set.contains(x) {
+            // Apply the witness lemma explicitly
+            scalar_mult_witness(alpha, s, x)
+
+            let a: Real satisfy {
+                s.contains(a) and x = alpha * a
+            }
+
+            // Since sup_s is an upper bound for s, we have a ≤ sup_s
+            a <= sup_s
+
+            // Since α ≥ 0 and a ≤ sup_s, we have α·a ≤ α·sup_s
+            alpha >= Real.0
+            alpha * a <= alpha * sup_s
+
+            // Therefore x ≤ scaled_sup
+            x = alpha * a
+            x <= alpha * sup_s
+            x <= scaled_sup
+        }
+    }
+    is_set_upper_bound(scaled_set, scaled_sup)
+
+    // Part 2: scaled_sup is the least upper bound for scaled_set
+    forall(ub: Real) {
+        if is_set_upper_bound(scaled_set, ub) {
+            // Show that α·sup_s ≤ ub
+            // For any a ∈ s, α·a is in scaled_set, so α·a ≤ ub
+            forall(a: Real) {
+                if s.contains(a) {
+                    scalar_mult_membership(alpha, s, a)
+                    scaled_set.contains(alpha * a)
+                    alpha * a <= ub
+                }
+            }
+
+            // Apply the helper lemma
+            is_nonempty(s)
+            mul_supremum_le(alpha, s, sup_s, ub)
+            alpha * sup_s <= ub
+            scaled_sup <= ub
+        }
+    }
+
+    is_set_supremum(scaled_set, scaled_sup)
+}
+
+/// If beta <= 0, s is nonempty, inf_s is the infimum of s, and for all a in s
+/// we have beta * a <= ub, then beta * inf_s <= ub.
+theorem mul_infimum_le(beta: Real, s: Set[Real], inf_s: Real, ub: Real) {
+    beta <= Real.0 and is_set_infimum(s, inf_s) and is_nonempty(s) and
+    (forall(a: Real) { s.contains(a) implies beta * a <= ub })
+    implies
+    beta * inf_s <= ub
+} by {
+    if beta = Real.0 {
+        // When β = 0, β·inf_s = 0
+        beta * inf_s = Real.0
+
+        // We need to show 0 <= ub
+        // Since s is nonempty, pick any element a from s
+        let a: Real satisfy { s.contains(a) }
+        beta * a <= ub
+        Real.0 <= ub
+        beta * inf_s <= ub
+    } else {
+        // When β < 0
+        beta < Real.0
+        beta != Real.0
+        beta.is_negative
+
+        // For all a ∈ s, we have β·a ≤ ub
+        // Dividing by β (which is negative) flips the inequality: a ≥ ub/β
+        forall(a: Real) {
+            if s.contains(a) {
+                beta * a <= ub
+                // Since β < 0, dividing by β flips the inequality
+                ub / beta <= a
+            }
+        }
+
+        // So ub/β is a lower bound of s
+        is_set_lower_bound(s, ub / beta)
+
+        // Since inf_s is the greatest lower bound
+        ub / beta <= inf_s
+
+        // Multiply both sides by β (which is negative), flipping the inequality
+        // β·inf_s ≤ β·(ub/β) = ub
+        beta * inf_s <= beta * (ub / beta)
+        mul_div_cancel(ub, beta)
+        beta * (ub / beta) = ub
+        beta * inf_s <= ub
+    }
+}
+
+/// For α < 0, sup(αS) = α·inf S.
+theorem supremum_scalar_mult_neg(alpha: Real, s: Set[Real], inf_s: Real) {
+    alpha < Real.0 and is_nonempty(s) and is_set_infimum(s, inf_s)
+    implies
+    is_set_supremum(scalar_mult(alpha, s), alpha * inf_s)
+} by {
+    let scaled_set = scalar_mult(alpha, s)
+    let scaled_sup = alpha * inf_s
+
+    // Part 1: scaled_sup is an upper bound for scaled_set
+    forall(x: Real) {
+        if scaled_set.contains(x) {
+            // x is in the scaled set, so x = α·a for some a ∈ s
+            scalar_mult_witness(alpha, s, x)
+            let a: Real satisfy {
+                s.contains(a) and x = alpha * a
+            }
+
+            // Since inf_s is a lower bound for s, we have inf_s ≤ a
+            inf_s <= a
+
+            // Since α < 0 and inf_s ≤ a, multiplying by α flips the inequality
+            // So α·a ≤ α·inf_s
+            alpha.is_negative
+            alpha * a <= alpha * inf_s
+            x <= scaled_sup
+        }
+    }
+    is_set_upper_bound(scaled_set, scaled_sup)
+
+    // Part 2: scaled_sup is the least upper bound for scaled_set
+    forall(ub: Real) {
+        if is_set_upper_bound(scaled_set, ub) {
+            // Show that α·inf_s ≤ ub
+            // For any a ∈ s, α·a is in scaled_set, so α·a ≤ ub
+            forall(a: Real) {
+                if s.contains(a) {
+                    scalar_mult_membership(alpha, s, a)
+                    scaled_set.contains(alpha * a)
+                    alpha * a <= ub
+                }
+            }
+
+            // Apply the helper lemma
+            is_nonempty(s)
+            alpha <= Real.0
+            mul_infimum_le(alpha, s, inf_s, ub)
+            alpha * inf_s <= ub
+            scaled_sup <= ub
+        }
+    }
+
+    is_set_supremum(scaled_set, scaled_sup)
+}
+
+/// Convert the image of a sequence to a set.
+define seq_image(a: Nat -> Real) -> Set[Real] {
+    Set[Real].new(image(a))
+}
+
+/// If an increasing sequence is bounded above, then it converges to the
+/// supremum of its image. This is the monotone convergence theorem for sequences.
+theorem monotone_convergence_seq(a: Nat -> Real, b: Real) {
+    is_increasing(a) and is_upper_bound(a, b)
+    implies
+    is_set_supremum(seq_image(a), limit(a))
+} by {
+    // By monotone convergence principle, the sequence converges
+    monotone_convergence_principle(a, b)
+    converges(a)
+
+    let img = seq_image(a)
+    let lim = limit(a)
+
+    // Part 1: lim is an upper bound for img
+    forall(x: Real) {
+        if img.contains(x) {
+            // x is in the image, so x = a(n) for some n
+            image(a, x)
+            let n: Nat satisfy {
+                a(n) = x
+            }
+
+            // Since the sequence converges and is increasing,
+            // we have a(n) <= limit(a)
+            is_increasing(a)
+            converges(a)
+            a(n) <= lim
+            x <= lim
+        }
+    }
+    is_set_upper_bound(img, lim)
+
+    // Part 2: lim is the least upper bound for img
+    forall(ub: Real) {
+        if is_set_upper_bound(img, ub) {
+            // Show that lim <= ub
+            // Since ub is an upper bound for img, we have a(n) <= ub for all n
+            forall(n: Nat) {
+                image(a, a(n))
+                a(n) ∈ Set.new(image(a))
+                seq_image(a) = Set.new(image(a))
+                a(n) ∈ seq_image(a)
+                img.contains(a(n))
+                a(n) <= ub
+            }
+
+            // So ub is an upper bound for the sequence
+            is_upper_bound(a, ub)
+
+            // Since the sequence converges to lim and is increasing,
+            // we must have lim <= ub
+            lim <= ub
+        }
+    }
+
+    is_set_supremum(img, lim)
+}
+
+/// True if f is nondecreasing (order-preserving).
+define is_nondecreasing(f: Real -> Real) -> Bool {
+    forall(x: Real, y: Real) {
+        x <= y implies f(x) <= f(y)
+    }
+}
+
+/// True if y is in the image of set s under function f.
+define function_image_contains(f: Real -> Real, s: Set[Real], y: Real) -> Bool {
+    exists(x: Real) {
+        s.contains(x) and y = f(x)
+    }
+}
+
+/// The image of a set s under function f.
+define function_image(f: Real -> Real, s: Set[Real]) -> Set[Real] {
+    Set[Real].new(function_image_contains(f, s))
+}
+
+/// Membership in function_image is equivalent to function_image_contains.
+theorem function_image_contains_iff(f: Real -> Real, s: Set[Real], y: Real) {
+    function_image(f, s).contains(y) = function_image_contains(f, s, y)
+}
+
+/// If f is nondecreasing, then sup f(S) ≤ f(sup S).
+theorem supremum_order_preserving(f: Real -> Real, s: Set[Real], sup_s: Real) {
+    is_nondecreasing(f) and is_set_supremum(s, sup_s) and is_nonempty(function_image(f, s))
+    implies
+    exists(sup_fs: Real) {
+        is_set_supremum(function_image(f, s), sup_fs) and sup_fs <= f(sup_s)
+    }
+} by {
+    let fs = function_image(f, s)
+
+    // First, show that f(sup_s) is an upper bound for fs
+    forall(y: Real) {
+        if fs.contains(y) {
+            // y is in f(s), so y = f(x) for some x in s
+            function_image_contains_iff(f, s, y)
+            fs.contains(y) = function_image_contains(f, s, y)
+            function_image_contains(f, s, y)
+            let x: Real satisfy {
+                s.contains(x) and y = f(x)
+            }
+
+            // Since sup_s is the supremum of s, it is an upper bound
+            // Therefore x <= sup_s
+            // Since f is nondecreasing and x <= sup_s, f(x) <= f(sup_s)
+            // Therefore y <= f(sup_s)
+            y <= f(sup_s)
+        }
+    }
+    is_set_upper_bound(fs, f(sup_s))
+    has_upper_bound(fs)
+
+    // By completeness, fs has a supremum
+    completeness(fs)
+    let sup_fs: Real satisfy {
+        is_set_supremum(fs, sup_fs)
+    }
+
+    // Since f(sup_s) is an upper bound for fs and sup_fs is the least upper bound
+    sup_fs <= f(sup_s)
+}

@@ -1,0 +1,15 @@
+from add_semigroup import AddSemigroup
+from zero import Zero
+
+/// An additive monoid is an additive semigroup with an identity element.
+typeclass A: AddMonoid extends AddSemigroup, Zero {
+    /// The identity element must satisfy the identity property on the right.
+    add_identity_right(a: A) {
+        a + A.0 = a
+    }
+
+    /// The identity element must satisfy the identity property on the left.
+    add_identity_left(a: A) {
+        A.0 + a = a
+    }
+}

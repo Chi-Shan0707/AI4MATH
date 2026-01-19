@@ -1,0 +1,1512 @@
+from list import List
+from nat import Nat
+
+/// Sets with elements of type `K` are defined as Boolean functions over `K`
+structure Set[K] {
+    /// True if the element is in the set.
+    contains: K -> Bool
+}
+
+// Obvious sets
+define constant_false[K](x: K) -> Bool {
+    false
+}
+define negate_fun[K](f: K -> Bool, x: K) -> Bool {
+    not f(x)
+}
+define singleton_fun[K](a: K, x: K) -> Bool {
+    a = x
+}
+
+/// Creates a new function that returns true for the given item and delegates to the original function for all other inputs.
+define functional_insert[K](f: K -> Bool, item: K, x: K) -> Bool {
+    if x = item {
+        true
+    } else {
+        f(x)
+    }
+}
+
+/// Creates a new function that returns false for the given item and delegates to the original function for all other inputs.
+define functional_remove[K](f: K -> Bool, item: K, x: K) -> Bool {
+    if x = item {
+        false
+    } else {
+        f(x)
+    }
+}
+
+/// True if a boolean function represents a finite set.
+/// A function satisfies the finite constraint if there exists a finite list containing all elements for which the function returns true.
+define finite_constraint[K](contains: K -> Bool) -> Bool {
+    exists(superset: List[K]) {
+        forall(x: K) {
+            contains(x) implies superset.contains(x)
+        }
+    }
+}
+
+theorem constant_false_satisfies_finite_constraint[K] {
+    finite_constraint(constant_false[K])
+}
+
+theorem list_contains_satisfies_finite_constraint[K](ts: List[K]) {
+    finite_constraint(ts.contains)
+}
+
+theorem functional_insert_satisfies_finite_constraint[K](f: K -> Bool, item: K) {
+    finite_constraint(f) implies finite_constraint(functional_insert(f, item))
+} by {
+    if finite_constraint(f) {
+        let superset: List[K] satisfy {
+            forall(x: K) {
+                f(x) implies superset.contains(x)
+            }
+        }
+        let new_superset = List.cons(item, superset)
+        forall(x: K) {
+            if functional_insert(f, item, x) {
+                if x = item {
+                    new_superset.contains(x)
+                } else {
+                    f(x)
+                    superset.contains(x)
+                    new_superset.contains(x)
+                }
+            }
+        }
+        finite_constraint(functional_insert(f, item))
+    }
+}
+
+theorem functional_remove_satisfies_finite_constraint[K](f: K -> Bool, item: K) {
+    finite_constraint(f) implies finite_constraint(functional_remove(f, item))
+}
+
+theorem neg_of_neg_is_self[K](f: K -> Bool) {
+    negate_fun(negate_fun(f)) = f
+} by {
+    forall(x: K) {
+        // Trick that helps the prover, thanks @lacker
+        if f(x) {
+        } else {
+            negate_fun(negate_fun(f), x) = f(x)
+        }
+    }
+}
+
+/// Set basics
+attributes Set[K] {
+    let empty_set = Set[K].new(constant_false[K])
+    /// The universal set containing all elements of type K.
+    let universal_set = Set[K].new(negate_fun(constant_false[K]))
+    /// Creates a set containing exactly one element.
+    let singleton: K -> Set[K] = function(a: K) {
+        Set[K].new(singleton_fun(a))
+    }
+
+    /// True if the set has no elements.
+    define is_empty(self) -> Bool {
+        forall(x: K) {
+            not self.contains(x)
+        }
+    }
+
+    /// The complement of this set.
+    define c(self) -> Set[K] {
+        Set[K].new(negate_fun(self.contains))
+    }
+
+    /// True if the set contains exactly one element.
+    define is_singleton(self) -> Bool {
+        exists(a: K) {
+            self = Set[K].singleton(a)
+        }
+    }
+
+    /// Removes an element from the set. If the item isn't present, this is a no-op.
+    define remove(self, item: K) -> Set[K] {
+        Set[K].new(functional_remove(self.contains, item))
+    }
+
+    /// Adds an element to the set. If the item is already present, this is a no-op.
+    define insert(self, item: K) -> Set[K] {
+        Set[K].new(functional_insert(self.contains, item))
+    }
+
+    /// True if the two sets have no elements in common.
+    define is_disjoint(self, other: Set[K]) -> Bool {
+        forall(x: K) {
+            not (self.contains(x) and other.contains(x))
+        }
+    }
+
+}
+
+theorem empty_set_is_empty[K] {
+    (Set[K].empty_set).is_empty
+}
+
+theorem singleton_set_is_singleton[K](a: K) {
+    (Set[K].singleton(a)).is_singleton
+}
+
+theorem compl_of_compl_is_self[K](s: Set[K]) {
+    s.c.c = s
+} by {
+    forall(x: K) {
+        if s.contains(x) {
+            not s.c.contains(x)
+            s.c.c.contains(x)
+        } else {
+            s.c.contains(x)
+            not s.c.c.contains(x)
+        }
+        s.c.c.contains(x) = s.contains(x)
+    }
+
+    s.c.c.contains = s.contains
+}
+
+theorem empty_set_compl_is_universal[K] {
+    (Set[K].empty_set).c = Set[K].universal_set
+} by {
+    let e = Set[K].empty_set
+    let u = Set[K].universal_set
+
+    forall(x: K) {
+        not e.contains(x)
+        e.c.contains(x)
+        not constant_false(x)
+        negate_fun(constant_false[K], x)
+        u.contains(x)
+        e.c.contains(x) = u.contains(x)
+    }
+
+    e.c.contains = u.contains
+}
+
+theorem universal_set_compl_is_empty[K] {
+    (Set[K].universal_set).c = Set[K].empty_set
+} by {
+    let e = Set[K].empty_set
+    let u = Set[K].universal_set
+
+}
+
+theorem singleton_set_is_not_empty[K](a: K) {
+    not (Set[K].singleton(a)).is_empty
+} by {
+    let s = Set[K].singleton(a)
+    singleton_fun(a, a)
+    s.contains(a)
+}
+
+// Subsets
+attributes Set[K] {
+    /// self ⊆ s
+    define subset(self, s: Set[K]) -> Bool {
+        forall(x: K) {
+            self.contains(x) implies s.contains(x)
+        }
+    }
+
+    /// self ⊇ s
+    define superset(self, s: Set[K]) -> Bool {
+        s.subset(self)
+    }
+}
+
+// Subset theorems
+theorem empty_set_is_always_subset[K](s: Set[K]) {
+    (Set[K].empty_set).subset(s)
+}
+
+theorem all_sets_subset_universal[K](s: Set[K]) {
+    s.subset(Set[K].universal_set)
+} by {
+    let u = Set[K].universal_set
+    forall(x: K) {
+        not constant_false(x)
+        negate_fun(constant_false[K], x)
+        u.contains(x)
+        s.contains(x) implies u.contains(x)
+    }
+}
+
+theorem subset_refl[K](s: Set[K]) {
+    s.subset(s)
+}
+
+theorem subset_trans[K](a: Set[K], b: Set[K], c: Set[K]) {
+    a.subset(b) and b.subset(c) implies a.subset(c)
+}
+
+theorem double_inclusion[K](a: Set[K], b: Set[K]) {
+    a.subset(b) and b.subset(a) implies a = b
+} by {
+    forall(x: K) {
+        b.contains(x) implies a.contains(x)
+        a.contains(x) = b.contains(x)
+    }
+    a.contains = b.contains
+}
+
+// "Standard" union and intersection of two sets
+define elem_in_union[K](a: Set[K], b: Set[K], x: K) -> Bool {
+    a.contains(x) or b.contains(x)
+}
+
+define elem_in_intersection[K](a: Set[K], b: Set[K], x: K) -> Bool {
+    a.contains(x) and b.contains(x)
+}
+
+// Difference
+define elem_in_difference[K](a: Set[K], b: Set[K], x: K) -> Bool {
+    a.contains(x) and not b.contains(x)
+}
+
+attributes Set[K] {
+    /// self ∪ s
+    define union(self, s: Set[K]) -> Set[K] {
+        Set.new(elem_in_union(self, s))
+    }
+
+    /// self ∩ s
+    define intersection(self, s: Set[K]) -> Set[K] {
+        Set[K].new(elem_in_intersection(self, s))
+    }
+
+    /// self \ s
+    define difference(self, s: Set[K]) -> Set[K] {
+        Set[K].new(elem_in_difference(self, s))
+    }
+}
+
+// Difference theorems
+// Basic properties of set difference
+
+theorem difference_subset[K](a: Set[K], b: Set[K]) {
+    a.difference(b).subset(a)
+} by {
+    forall(x: K) {
+        if a.difference(b).contains(x) {
+            elem_in_difference(a, b, x)
+            a.contains(x)
+        }
+    }
+}
+
+theorem difference_contains_imp_not_contains[K](a: Set[K], b: Set[K], x: K) {
+    a.difference(b).contains(x) implies not b.contains(x)
+}
+
+theorem difference_contains_imp_contains[K](a: Set[K], b: Set[K], x: K) {
+    a.difference(b).contains(x) implies a.contains(x)
+}
+
+theorem difference_contains_of_membership[K](a: Set[K], b: Set[K], x: K) {
+    a.contains(x) and not b.contains(x) implies a.difference(b).contains(x)
+}
+
+theorem difference_of_self_is_empty[K](a: Set[K]) {
+    a.difference(a) = Set[K].empty_set
+} by {
+    let d = a.difference(a)
+    let e = Set[K].empty_set
+    forall(x: K) {
+        not d.contains(x)
+    }
+    d.subset(e)
+}
+
+// Insert/remove lemmas
+theorem insert_contains[K](s: Set[K], item: K) {
+    s.insert(item).contains(item)
+}
+
+theorem remove_does_not_contain[K](s: Set[K], item: K) {
+    not s.remove(item).contains(item)
+}
+
+theorem insert_other_still_contains[K](s: Set[K], item: K, other: K) {
+    s.contains(item) implies s.insert(other).contains(item)
+}
+
+theorem remove_other_still_contains[K](s: Set[K], item: K, other: K) {
+    item != other and s.contains(item) implies s.remove(other).contains(item)
+}
+
+theorem insert_other_contains_imp_contains[K](s: Set[K], item: K, other: K) {
+    item != other and s.insert(other).contains(item) implies s.contains(item)
+}
+
+theorem remove_other_contains_imp_contains[K](s: Set[K], item: K, other: K) {
+    item != other and s.remove(other).contains(item) implies s.contains(item)
+}
+
+theorem insert_other_contains_eq[K](s: Set[K], item: K, other: K) {
+    item != other implies s.contains(item) = s.insert(other).contains(item)
+} by {
+    if s.contains(item) {
+    } else {
+        s.contains(item) = s.insert(other).contains(item)
+    }
+}
+
+theorem remove_other_contains_eq[K](s: Set[K], item: K, other: K) {
+    item != other implies s.contains(item) = s.remove(other).contains(item)
+} by {
+    if s.contains(item) {
+    } else {
+        s.contains(item) = s.remove(other).contains(item)
+    }
+}
+
+theorem remove_then_insert[K](s: Set[K], item: K) {
+    s.contains(item) implies s.remove(item).insert(item) = s
+} by {
+    if s.remove(item).insert(item) != s {
+        s.remove(item).insert(item).contains != s.contains
+        let t: K satisfy {
+            s.remove(item).insert(item).contains(t) != s.contains(t)
+        }
+        if item != t {
+            if s.contains(t) {
+                false
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+}
+
+theorem insert_then_remove[K](s: Set[K], item: K) {
+    not s.contains(item) implies s.insert(item).remove(item) = s
+} by {
+    if s.insert(item).remove(item) != s {
+        s.insert(item).remove(item).contains != s.contains
+        let t: K satisfy {
+            s.insert(item).remove(item).contains(t) != s.contains(t)
+        }
+        if item != t {
+            if s.contains(t) {
+                false
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+}
+
+theorem union_with_difference_decomp[K](s: Set[K], t: Set[K]) {
+    s.union(t) = t.union(s.difference(t))
+} by {
+    let u = s.union(t)
+    let v = t.union(s.difference(t))
+
+    forall(x: K) {
+        if u.contains(x) {
+            if s.contains(x) {
+                if t.contains(x) {
+                    elem_in_union(t, s.difference(t), x)
+                } else {
+                    difference_contains_of_membership(s, t, x)
+                    s.difference(t).contains(x)
+                    elem_in_union(t, s.difference(t), x)
+                }
+            } else {
+                t.contains(x)
+                elem_in_union(t, s.difference(t), x)
+            }
+            v.contains(x)
+        }
+    }
+    u.subset(v)
+
+    forall(x: K) {
+        if v.contains(x) {
+            if t.contains(x) {
+                elem_in_union(s, t, x)
+                u.contains(x)
+            } else {
+                difference_contains_imp_contains(s, t, x)
+                s.contains(x)
+                elem_in_union(s, t, x)
+                u.contains(x)
+            }
+        }
+    }
+    v.subset(u)
+}
+
+/// S ∪ (T \ S) = S ∪ T
+theorem union_with_difference_decomp_rev[K](s: Set[K], t: Set[K]) {
+    s.union(t) = s.union(t.difference(s))
+} by {
+    let u = s.union(t)
+    let v = s.union(t.difference(s))
+
+    forall(x: K) {
+        if u.contains(x) {
+            if s.contains(x) {
+                elem_in_union(s, t.difference(s), x)
+            } else {
+                t.contains(x)
+                difference_contains_of_membership(t, s, x)
+                t.difference(s).contains(x)
+                elem_in_union(s, t.difference(s), x)
+            }
+            v.contains(x)
+        }
+    }
+    u.subset(v)
+
+    forall(x: K) {
+        if v.contains(x) {
+            if s.contains(x) {
+                elem_in_union(s, t, x)
+                u.contains(x)
+            } else {
+                difference_contains_imp_contains(t, s, x)
+                t.contains(x)
+                elem_in_union(s, t, x)
+                u.contains(x)
+            }
+        }
+    }
+    v.subset(u)
+}
+
+/// S ∪ (T \ (S ∩ T)) = S ∪ T
+theorem union_with_difference_decomp_inter[K](s: Set[K], t: Set[K]) {
+    s.union(t) = s.union(t.difference(s.intersection(t)))
+} by {
+    let u = s.union(t)
+    let v = s.union(t.difference(s.intersection(t)))
+
+    forall(x: K) {
+        if u.contains(x) {
+            if s.contains(x) {
+                elem_in_union(s, t.difference(s.intersection(t)), x)
+                v.contains(x)
+            } else {
+                t.contains(x)
+                not s.intersection(t).contains(x)
+                difference_contains_of_membership(t, s.intersection(t), x)
+                t.difference(s.intersection(t)).contains(x)
+                elem_in_union(s, t.difference(s.intersection(t)), x)
+                v.contains(x)
+            }
+        }
+    }
+    u.subset(v)
+
+    forall(x: K) {
+        if v.contains(x) {
+            if s.contains(x) {
+                elem_in_union(s, t, x)
+                u.contains(x)
+            } else {
+                difference_contains_imp_contains(t, s.intersection(t), x)
+                t.contains(x)
+                elem_in_union(s, t, x)
+                u.contains(x)
+            }
+        }
+    }
+    v.subset(u)
+}
+
+// Union theorems
+// A \subseteq A \cup B (and same with B)
+theorem sets_subset_union[K](a: Set[K], b: Set[K]) {
+    a.subset(a.union(b)) and b.subset(a.union(b))
+} by {
+    forall(x: K) {
+        if a.contains(x) {
+            elem_in_union(a, b, x)
+            a.union(b).contains(x)
+        }
+    }
+    a.subset(a.union(b))
+    forall(x: K) {
+        if b.contains(x) {
+            elem_in_union(a, b, x)
+            a.union(b).contains(x)
+        }
+    }
+    b.subset(a.union(b))
+}
+
+// A \subseteq C and B \subseteq C implies A \cup B \subseteq C
+theorem sets_subset_contain_union[K](a: Set[K], b: Set[K], c: Set[K]) {
+    a.subset(c) and b.subset(c) implies a.union(b).subset(c)
+} by {
+    if a.subset(c) and b.subset(c) {
+        forall(x: K) {
+            if a.union(b).contains(x) {
+                elem_in_union(a, b, x)
+                if a.contains(x) {
+                    c.contains(x)
+                } else {
+                    b.contains(x)
+                    c.contains(x)
+                }
+            }
+        }
+    }
+}
+
+theorem union_comm[K](a: Set[K], b: Set[K]) {
+    a.union(b) = b.union(a)
+} by {
+    let u = a.union(b)
+    let v = b.union(a)
+
+}
+
+theorem union_assoc[K](a: Set[K], b: Set[K], c: Set[K]) {
+    a.union(b.union(c)) = a.union(b).union(c)
+} by {
+    let u = a.union(b.union(c))
+    let v = a.union(b).union(c)
+
+    // Note that A, B, C are subsets of U hence V is a subset of U
+    a.subset(u)
+    b.union(c).subset(u)
+    b.subset(b.union(c))
+    b.subset(u)
+    c.subset(b.union(c))
+    c.subset(u)
+    a.union(b).subset(u)
+    v.subset(u)
+
+    // Reverse
+    a.union(b).subset(v)
+    a.subset(a.union(b))
+    a.subset(v)
+    b.subset(a.union(b))
+    b.subset(v)
+    c.subset(v)
+    b.union(c).subset(v)
+    u.subset(v)
+}
+
+theorem union_idemp[K](s: Set[K]) {
+    s.union(s) = s
+}
+
+theorem union_subset_is_set[K](a: Set[K], b: Set[K]) {
+    a.subset(b) implies a.union(b) = b
+}
+
+theorem union_with_empty_is_self[K](s: Set[K]) {
+    s.union(Set[K].empty_set) = s
+}
+
+theorem union_with_universal_is_universal[K](s: Set[K]) {
+    s.union(Set[K].universal_set) = Set[K].universal_set
+}
+
+// Intersection theorems
+theorem sets_subset_intersection[K](a: Set[K], b: Set[K]) {
+    a.intersection(b).subset(a) and a.intersection(b).subset(b)
+} by {
+    forall(x: K) {
+        if a.intersection(b).contains(x) {
+            elem_in_intersection(a, b, x)
+            a.contains(x)
+        }
+    }
+    a.intersection(b).subset(a)
+    forall(x: K) {
+        if a.intersection(b).contains(x) {
+            elem_in_intersection(a, b, x)
+            b.contains(x)
+        }
+    }
+    a.intersection(b).subset(b)
+}
+
+theorem set_supset_contains_intersection[K](a: Set[K], b: Set[K], c: Set[K]) {
+    a.superset(c) and b.superset(c) implies a.intersection(b).superset(c)
+} by {
+    if a.superset(c) and b.superset(c) {
+        forall(x: K) {
+            if c.contains(x) {
+                a.contains(x)
+                b.contains(x)
+                elem_in_intersection(a, b, x)
+                a.intersection(b).contains(x)
+            }
+        }
+    }
+}
+
+theorem intersection_comm[K](a: Set[K], b: Set[K]) {
+    a.intersection(b) = b.intersection(a)
+} by {
+    let u = a.intersection(b)
+    let v = b.intersection(a)
+
+    forall(x: K) {
+        if u.contains(x) {
+            elem_in_intersection(a, b, x)
+            a.contains(x)
+            b.contains(x)
+            elem_in_intersection(b, a, x)
+            v.contains(x)
+        }
+    }
+    u.subset(v)
+
+    forall(x: K) {
+        if v.contains(x) {
+            elem_in_intersection(b, a, x)
+            a.contains(x)
+            b.contains(x)
+            elem_in_intersection(a, b, x)
+            u.contains(x)
+        }
+    }
+    v.subset(u)
+}
+
+theorem intersection_assoc[K](a: Set[K], b: Set[K], c: Set[K]) {
+    a.intersection(b.intersection(c)) = a.intersection(b).intersection(c)
+} by {
+    let u = a.intersection(b.intersection(c))
+    let v = a.intersection(b).intersection(c)
+
+    // See union proof for comments
+    a.superset(u)
+    b.intersection(c).superset(u)
+    b.superset(b.intersection(c))
+    b.superset(u)
+    c.superset(b.intersection(c))
+    c.superset(u)
+    a.intersection(b).superset(u)
+    v.superset(u)
+
+    a.intersection(b).superset(v)
+    a.superset(a.intersection(b))
+    a.superset(v)
+    b.superset(a.intersection(b))
+    b.superset(v)
+    c.superset(v)
+    b.intersection(c).superset(v)
+    u.superset(v)
+}
+
+theorem intersection_idemp[K](s: Set[K]) {
+    s.intersection(s) = s
+}
+
+theorem intersection_with_superset_is_self[K](s: Set[K], t: Set[K]) {
+    s.subset(t) implies s.intersection(t) = s
+} by {
+    if s.subset(t) {
+        s.intersection(t).subset(s)
+        s.superset(s)
+        t.superset(s)
+        s.intersection(t).superset(s)
+        s.subset(s.intersection(t))
+    }
+}
+
+theorem intersection_with_universal_is_self[K](s: Set[K]) {
+    s.intersection(Set[K].universal_set) = s
+}
+
+theorem intersection_with_empty_is_empty[K](s: Set[K]) {
+    s.intersection(Set[K].empty_set) = Set[K].empty_set
+}
+
+// Union + intersection theorems
+theorem union_intersection_distrib[K](a: Set[K], b: Set[K], c: Set[K]) {
+    a.union(b.intersection(c)) = a.union(b).intersection(a.union(c))
+} by {
+    let u = a.union(b.intersection(c))
+    let v = a.union(b).intersection(a.union(c))
+
+    // Forward direction ("easy")
+    a.subset(a.union(b))
+    a.union(b).superset(a)
+    a.subset(a.union(c))
+    a.union(c).superset(a)
+    v.superset(a)
+    a.subset(v)
+
+    let bc = b.intersection(c)
+    bc.subset(b)
+    b.subset(a.union(b))
+    bc.subset(a.union(b))
+    a.union(b).superset(bc)
+    bc.subset(c)
+    c.subset(a.union(c))
+    bc.subset(a.union(c))
+    a.union(c).superset(bc)
+    v.superset(bc)
+    bc.subset(v)
+
+    // Other direction
+    forall(x: K) {
+        if v.contains(x) {
+            a.union(b).contains(x)
+            a.union(c).contains(x)
+
+            if a.contains(x) {
+                elem_in_union(a, b.intersection(c), x)
+                u.contains(x)
+            } else {
+                b.contains(x)
+                c.contains(x)
+                elem_in_intersection(b, c, x)
+                b.intersection(c).contains(x)
+                elem_in_union(a, b.intersection(c), x)
+                u.contains(x)
+            }
+        }
+    }
+    v.subset(u)
+}
+
+// Union and intersection over a family of sets
+define or_family[K, I] (f: I -> Set[K], x: K) -> Bool {
+    exists(i: I) {
+        f(i).contains(x)
+    }
+}
+
+define and_family[K, I] (f: I -> Set[K], x: K) -> Bool {
+    forall(i: I) {
+        f(i).contains(x)
+    }
+}
+
+define union_family[K, I](f: I -> Set[K]) -> Set[K] {
+    Set[K].new(or_family(f))
+}
+
+define intersection_family[K, I](f: I -> Set[K]) -> Set[K] {
+    Set[K].new(and_family(f))
+}
+
+// Sequences of sets
+/// True if a sequence of sets is decreasing, meaning each set contains the next.
+define is_decreasing[T](seq: Nat -> Set[T]) -> Bool {
+    forall(i: Nat) {
+        seq(i.suc).subset(seq(i))
+    }
+}
+
+/// The intersection of all sets in a sequence.
+define seq_intersection[T](seq: Nat -> Set[T]) -> Set[T] {
+    intersection_family(seq)
+}
+
+/// True if a sequence of sets is increasing, meaning each set is contained in the next.
+define is_increasing[T](seq: Nat -> Set[T]) -> Bool {
+    forall(i: Nat) {
+        seq(i).subset(seq(i.suc))
+    }
+}
+
+/// The union of all sets in a sequence.
+define seq_union[T](seq: Nat -> Set[T]) -> Set[T] {
+    union_family(seq)
+}
+
+/// The sequence where each set is replaced by its complement.
+define seq_complement[T](seq: Nat -> Set[T]) -> (Nat -> Set[T]) {
+    function(i: Nat) {
+        seq(i).c
+    }
+}
+
+theorem decreasing_seq_transitive[T](s: Nat -> Set[T], j: Nat, k: Nat) {
+    is_decreasing(s) and j < k implies s(j).superset(s(k))
+} by {
+    let d: Nat satisfy {
+        j + d = k and d != Nat.0
+    }
+
+    define f(dist: Nat) -> Bool {
+        forall(i: Nat) {
+            is_decreasing(s) implies s(i).superset(s(i + dist))
+        }
+    }
+
+    f(Nat.0)
+
+    forall(dist: Nat) {
+        if f(dist) {
+            forall(i: Nat) {
+                if is_decreasing(s) {
+                    s(i + dist.suc).subset(s(i + dist))
+                    s(i).superset(s(i + dist))
+                    s(i + dist).subset(s(i))
+                    s(i + dist.suc).subset(s(i))
+                    s(i).superset(s(i + dist.suc))
+                }
+            }
+            f(dist.suc)
+        }
+    }
+
+    f(d)
+}
+
+theorem seq_contains_intersection[T](s: Nat -> Set[T], i: Nat) {
+    s(i).superset(seq_intersection(s))
+} by {
+    forall(x: T) {
+        if seq_intersection(s).contains(x) {
+            s(i).contains(x)
+        }
+    }
+}
+
+theorem increasing_seq_transitive[T](s: Nat -> Set[T], j: Nat, k: Nat) {
+    is_increasing(s) and j < k implies s(j).subset(s(k))
+} by {
+    let d: Nat satisfy {
+        j + d = k and d != Nat.0
+    }
+
+    define f(dist: Nat) -> Bool {
+        forall(i: Nat) {
+            is_increasing(s) implies s(i).subset(s(i + dist))
+        }
+    }
+
+    f(Nat.0)
+
+    forall(dist: Nat) {
+        if f(dist) {
+            forall(i: Nat) {
+                if is_increasing(s) {
+                    s(i + dist).subset(s(i + dist.suc))
+                    s(i).subset(s(i + dist))
+                    s(i).subset(s(i + dist.suc))
+                }
+            }
+            f(dist.suc)
+        }
+    }
+
+    f(d)
+}
+
+theorem seq_union_contains[T](s: Nat -> Set[T], i: Nat) {
+    seq_union(s).superset(s(i))
+} by {
+    forall(x: T) {
+        if s(i).contains(x) {
+            seq_union(s).contains(x)
+        }
+    }
+}
+
+theorem seq_union_complement_eq_intersection_complement[T](s: Nat -> Set[T]) {
+    seq_union(seq_complement(s)) = (seq_intersection(s)).c
+} by {
+    let u = seq_union(seq_complement(s))
+    let v = (seq_intersection(s)).c
+    let sc = seq_complement(s)
+    let u_simp = union_family(sc)
+
+    forall(x: T) {
+        if u.contains(x) {
+            u_simp.contains(x)
+            let (i: Nat) satisfy {
+                sc(i).contains(x)
+            }
+            sc(i) = s(i).c
+            s(i).c.contains(x)
+            not s(i).contains(x)
+            not seq_intersection(s).contains(x)
+            v.contains(x)
+        }
+
+        if v.contains(x) {
+            not seq_intersection(s).contains(x)
+            let si = seq_intersection(s)
+            let si_simp = intersection_family(s)
+            si = si_simp
+            not si_simp.contains(x)
+            let (i: Nat) satisfy {
+                not s(i).contains(x)
+            }
+            s(i).c.contains(x)
+            sc(i) = s(i).c
+            sc(i).contains(x)
+            u_simp.contains(x)
+            u.contains(x)
+        }
+
+        u.contains(x) = v.contains(x)
+    }
+
+    u.contains = v.contains
+}
+
+theorem seq_intersection_complement_eq_union_complement[T](s: Nat -> Set[T]) {
+    seq_intersection(seq_complement(s)) = (seq_union(s)).c
+} by {
+    let u = seq_intersection(seq_complement(s))
+    let v = (seq_union(s)).c
+    let sc = seq_complement(s)
+    let u_simp = intersection_family(sc)
+
+    forall(x: T) {
+        if u.contains(x) {
+            u_simp.contains(x)
+            forall(i: Nat) {
+                sc(i).contains(x)
+                sc(i) = s(i).c
+                s(i).c.contains(x)
+                not s(i).contains(x)
+            }
+            let su = seq_union(s)
+            let su_simp = union_family(s)
+            su = su_simp
+            not su_simp.contains(x)
+            not seq_union(s).contains(x)
+            v.contains(x)
+        }
+
+        if v.contains(x) {
+            not seq_union(s).contains(x)
+            forall(i: Nat) {
+                not s(i).contains(x)
+                s(i).c.contains(x)
+                sc(i) = s(i).c
+                sc(i).contains(x)
+            }
+            u_simp.contains(x)
+            u.contains(x)
+        }
+
+        u.contains(x) = v.contains(x)
+    }
+
+    u.contains = v.contains
+}
+
+// Proving indexed union and intersection definitions are consistent
+// with family definitions
+/// A type with exactly two values.
+inductive TwoType {
+    /// The first value.
+    first
+    /// The second value.
+    second
+}
+
+// Creates a function f: TwoType -> Set[K]
+define fun_of_two[K](a: Set[K], b: Set[K], x: TwoType) -> Set[K] {
+    match x {
+        TwoType.first {
+            a
+        }
+        TwoType.second {
+            b
+        }
+    }
+}
+
+// Defines union in the case of two sets using family definition
+define family_union_of_two[K](a: Set[K], b: Set[K]) -> Set[K] {
+    union_family(fun_of_two(a, b))
+}
+
+theorem union_is_family_union_of_two[K](a: Set[K], b: Set[K]) {
+    a.union(b) = family_union_of_two(a, b)
+} by {
+    let u = a.union(b)
+    let v = family_union_of_two(a, b)
+    let f_two = fun_of_two(a, b)
+    // v_simp unrolls definitions, which helps the prover
+    let v_simp = union_family(f_two)
+
+    // Helps with definitions
+    f_two(TwoType.first) = a
+    f_two(TwoType.second) = b
+
+    // First prove that u \subseteq v
+    forall(x: K) {
+        // Somehow this helps the prover though it only really unrolls definitions
+        if a.contains(x) {
+            f_two(TwoType.first).contains(x)
+            or_family(f_two, x)
+            v_simp.contains(x)
+        }
+        a.contains(x) implies v_simp.contains(x)
+        if b.contains(x) {
+            f_two(TwoType.second).contains(x)
+            or_family(f_two, x)
+            v_simp.contains(x)
+        }
+        b.contains(x) implies v_simp.contains(x)
+
+        if u.contains(x) {
+            elem_in_union(a, b, x)
+            if a.contains(x) {
+                v_simp.contains(x)
+            } else {
+                b.contains(x)
+                v_simp.contains(x)
+            }
+            v.contains(x)
+        }
+        u.contains(x) implies v.contains(x)
+    }
+
+    // Now prove that v \subseteq u
+    forall(x: K) {
+        if v.contains(x) {
+            // Definition of v.contains(x), unrolled
+            v_simp.contains(x)
+
+            let (t: TwoType) satisfy {
+                f_two(t).contains(x)
+            }
+
+            match t {
+                TwoType.first {
+                    a.contains(x)
+                    elem_in_union(a, b, x)
+                    u.contains(x)
+                }
+                TwoType.second {
+                    b.contains(x)
+                    elem_in_union(a, b, x)
+                    u.contains(x)
+                }
+            }
+
+            u.contains(x)
+        }
+    }
+    v.subset(u)
+    u.subset(v)
+}
+
+theorem intersection_is_family_intersection_of_two[K](a: Set[K], b: Set[K]) {
+    a.intersection(b) = intersection_family(fun_of_two(a, b))
+} by {
+    let u = a.intersection(b)
+    let v = intersection_family(fun_of_two(a, b))
+    let f_two = fun_of_two(a, b)
+
+    f_two(TwoType.first) = a
+    f_two(TwoType.second) = b
+
+    // First prove that u \subseteq v
+    forall(x: K) {
+        if u.contains(x) {
+            elem_in_intersection(a, b, x)
+            a.contains(x)
+            b.contains(x)
+
+            forall(t: TwoType) {
+                match t {
+                    TwoType.first {
+                        f_two(t).contains(x)
+                    }
+                    TwoType.second {
+                        f_two(t).contains(x)
+                    }
+                }
+            }
+            and_family(f_two, x)
+            v.contains(x)
+        }
+
+        u.contains(x) implies v.contains(x)
+    }
+
+    // Makes life a little easier for the prover
+
+    u.subset(v)
+
+    // Now prove that v \subseteq u
+    forall(x: K) {
+        if v.contains(x) {
+            // Definitions unrolled
+            f_two(TwoType.first).contains(x)
+            f_two(TwoType.second).contains(x)
+
+            u.contains(x)
+        }
+    }
+    v.subset(u)
+}
+
+attributes List[K] {
+    define contains_set(self, s: Set[K]) -> Bool {
+        forall(x: K) {
+            s.contains(x) implies self.contains(x)
+        }
+    }
+}
+
+// Finite-set attributes and lemmas
+attributes Set[K] {
+    /// True if the set contains only finitely many elements.
+    define is_finite(self) -> Bool {
+        finite_constraint(self.contains)
+    }
+
+    /// True if the cardinality is at most n.
+    define cardinality_at_most(self, n: Nat) -> Bool {
+        exists (superset: List[K]) {
+            superset.contains_set(self) and superset.length <= n
+        }
+    }
+
+    /// True if the cardinality equals n.
+    define cardinality_is(self, n: Nat) -> Bool {
+        exists (containing_list: List[K]) {
+            containing_list.contains_set(self) and containing_list.filter(self.contains).unique.length = n
+        }
+    }
+}
+
+theorem union_is_finite_of_finite[K](a: Set[K], b: Set[K]) {
+    a.is_finite and b.is_finite implies (a.union(b)).is_finite
+} by {
+    finite_constraint(a.contains)
+    finite_constraint(b.contains)
+
+    let superset_a: List[K] satisfy {
+        forall(x: K) {
+            a.contains(x) implies superset_a.contains(x)
+        }
+    }
+    let superset_b: List[K] satisfy {
+        forall(x: K) {
+            b.contains(x) implies superset_b.contains(x)
+        }
+    }
+
+    let superset_union = superset_a + superset_b
+
+    forall(x: K) {
+        if a.union(b).contains(x) {
+            elem_in_union(a, b, x)
+            if a.contains(x) {
+                superset_a.contains(x)
+                superset_union.contains(x)
+            } else {
+                b.contains(x)
+                superset_b.contains(x)
+                superset_union.contains(x)
+            }
+        }
+    }
+
+    finite_constraint(a.union(b).contains)
+    a.union(b).is_finite
+}
+
+theorem intersection_is_finite_of_finite[K](a: Set[K], b: Set[K]) {
+    a.is_finite and b.is_finite implies (a.intersection(b)).is_finite
+} by {
+    if a.is_finite and b.is_finite {
+        finite_constraint(a.contains)
+
+        let superset_a: List[K] satisfy {
+            forall(x: K) {
+                a.contains(x) implies superset_a.contains(x)
+            }
+        }
+
+        forall(x: K) {
+            if a.intersection(b).contains(x) {
+                elem_in_intersection(a, b, x)
+                a.contains(x)
+                superset_a.contains(x)
+            }
+        }
+
+        finite_constraint(a.intersection(b).contains)
+        a.intersection(b).is_finite
+    }
+}
+
+theorem difference_is_finite_of_finite[K](a: Set[K], b: Set[K]) {
+    a.is_finite implies (a.difference(b)).is_finite
+} by {
+    if a.is_finite {
+        finite_constraint(a.contains)
+
+        let superset_a: List[K] satisfy {
+            forall(x: K) {
+                a.contains(x) implies superset_a.contains(x)
+            }
+        }
+
+        forall(x: K) {
+            if a.difference(b).contains(x) {
+                elem_in_difference(a, b, x)
+                a.contains(x)
+                superset_a.contains(x)
+            }
+        }
+
+        finite_constraint(a.difference(b).contains)
+        a.difference(b).is_finite
+    }
+}
+
+theorem cardinality_always_exists[K](s: Set[K]) {
+    s.is_finite implies exists(n: Nat) {
+        s.cardinality_is(n)
+    }
+} by {
+
+    let (superset: List[K]) satisfy {
+        forall(x: K) {
+            s.contains(x) implies superset.contains(x)
+        }
+    }
+
+    let n = superset.length
+}
+
+theorem union_is_at_most_length[K](a: Set[K], b: Set[K], n1: Nat, n2: Nat) {
+    a.cardinality_at_most(n1) and b.cardinality_at_most(n2) implies a.union(b).cardinality_at_most(n1 + n2)
+} by {
+    let (superset_a: List[K]) satisfy {
+        superset_a.contains_set(a) and superset_a.length <= n1
+    }
+
+    let (superset_b: List[K]) satisfy {
+        superset_b.contains_set(b) and superset_b.length <= n2
+    }
+
+    let superset_union = superset_a + superset_b
+
+    forall(x: K) {
+        if a.union(b).contains(x) {
+            elem_in_union(a, b, x)
+            if a.contains(x) {
+                superset_a.contains(x)
+                superset_union.contains(x)
+            } else {
+                b.contains(x)
+                superset_b.contains(x)
+                superset_union.contains(x)
+            }
+        }
+    }
+
+    superset_union.contains_set(a.union(b))
+
+    superset_a.length <= n1
+    superset_b.length <= n2
+    superset_a.length + superset_b.length <= n1 + n2
+    superset_a.length + superset_b.length = (superset_a + superset_b).length
+    superset_union.length <= n1 + n2
+    a.union(b).cardinality_at_most(n1 + n2)
+}
+
+theorem disjoint_union_is_length[K](a: Set[K], b: Set[K], n1: Nat, n2: Nat) {
+    a.cardinality_is(n1) and b.cardinality_is(n2) and a.is_disjoint(b)
+    implies
+    a.union(b).cardinality_is(n1 + n2)
+} by {
+    let list_a: List[K] satisfy {
+        list_a.contains_set(a) and list_a.filter(a.contains).unique.length = n1
+    }
+
+    let list_b: List[K] satisfy {
+        list_b.contains_set(b) and list_b.filter(b.contains).unique.length = n2
+    }
+
+    let f_list_a = list_a.filter(a.contains).unique
+    let f_list_b = list_b.filter(b.contains).unique
+
+    let list_union = f_list_a + f_list_b
+
+    forall(x: K) {
+        f_list_a.contains(x) implies list_union.contains(x)
+
+        f_list_b.contains(x) implies list_union.contains(x)
+        b.contains(x) implies list_union.contains(x)
+
+        a.contains(x) implies list_union.contains(x)
+        a.union(b).contains(x) implies list_union.contains(x)
+    }
+
+    forall (x: K) {
+        if a.contains(x) {
+            a.union(b).contains(x) = list_union.contains(x)
+        } else {
+            if b.contains(x) {
+                a.union(b).contains(x) = list_union.contains(x)
+            } else {
+                not f_list_a.contains(x)
+                not f_list_b.contains(x)
+                a.union(b).contains(x) = list_union.contains(x)
+            }
+        }
+    }
+
+    a.union(b).contains = list_union.contains
+
+    f_list_b.is_unique
+    forall(x: K) {
+        f_list_a.contains(x) implies a.contains(x)
+        f_list_b.contains(x) implies b.contains(x)
+        not (a.contains(x) and b.contains(x))
+        not (f_list_a.contains(x) and f_list_b.contains(x))
+    }
+    f_list_a.is_unique
+    f_list_a.is_unique and f_list_b.is_unique and forall(x: K) { not (f_list_a.contains(x) and f_list_b.contains(x)) }
+    (f_list_a + f_list_b).is_unique
+    list_union.is_unique
+    list_union.unique = list_union
+    list_union.filter(list_union.contains) = list_union
+    list_union.length = n1 + n2
+    list_union.contains_set(a.union(b))
+    list_union.filter(a.union(b).contains).unique.length = n1 + n2
+}
+
+theorem cardinality_is_well_defined[K](s: Set[K], n1: Nat, n2: Nat) {
+    s.cardinality_is(n1) and s.cardinality_is(n2) implies n1 = n2
+} by {
+    let (list_1: List[K]) satisfy {
+        list_1.contains_set(s) and list_1.filter(s.contains).unique.length = n1
+    }
+    let (list_2: List[K]) satisfy {
+        list_2.contains_set(s) and list_2.filter(s.contains).unique.length = n2
+    }
+
+    let f_list_1 = list_1.filter(s.contains).unique
+    let f_list_2 = list_2.filter(s.contains).unique
+
+    forall(x: K) {
+        if s.contains(x) {
+            f_list_2.contains(x)
+            f_list_1.contains(x) = f_list_2.contains(x)
+        } else {
+            not f_list_2.contains(x)
+            f_list_1.contains(x) = f_list_2.contains(x)
+        }
+    }
+
+    f_list_1.unique.length <= f_list_2.unique.length
+    f_list_2.unique.length <= f_list_1.unique.length
+}
+
+theorem cardinality_is_smallest_cardinality[K](s: Set[K], n: Nat) {
+    s.cardinality_is(n) implies s.cardinality_at_most(n)
+} by {
+    let (containing_list: List[K]) satisfy {
+        forall(x: K) {
+            s.contains(x) implies containing_list.contains(x)
+        } and containing_list.filter(s.contains).unique.length = n
+    }
+
+    let f_containing_list = containing_list.filter(s.contains).unique
+
+    forall(x: K) {
+        s.contains(x) implies f_containing_list.contains(x)
+    }
+
+    f_containing_list.contains_set(s)
+    f_containing_list.length <= n
+    s.cardinality_at_most(n)
+}
+
+theorem cardinality_is_implies_is_finite[K](s: Set[K], n: Nat) {
+    s.cardinality_is(n) implies s.is_finite
+} by {
+    let (containing_list: List[K]) satisfy {
+        containing_list.contains_set(s) and containing_list.filter(s.contains).unique.length = n
+    }
+
+    forall(x: K) {
+        s.contains(x) implies containing_list.contains(x)
+    }
+    finite_constraint(s.contains)
+    s.is_finite = finite_constraint(s.contains)
+}
+
+theorem union_cardinality_with_difference[K](s: Set[K], t: Set[K], n_s: Nat, n_diff: Nat) {
+    s.cardinality_is(n_s) and t.difference(s).cardinality_is(n_diff) implies s.union(t).cardinality_is(n_s + n_diff)
+} by {
+    s.is_disjoint(t.difference(s))
+    s.union(t.difference(s)).cardinality_is(n_s + n_diff)
+}
+
+theorem inclusion_exclusion[K](s: Set[K], t: Set[K], n_s: Nat, n_t: Nat, n_inter: Nat) {
+    s.cardinality_is(n_s) and t.cardinality_is(n_t) and s.intersection(t).cardinality_is(n_inter)
+    implies s.union(t).cardinality_is(n_s + n_t - n_inter)
+} by {
+    let sut = s.union(t)
+    let sit = s.intersection(t)
+    let sym_diff = sut.difference(sit)
+
+    // (S \ (S \cap T)) \cup (S \cap T) = S
+    let s_diff = s.difference(sit)
+    sit.union(s.difference(sit)) = sit.union(s)
+    sit.subset(s)
+    sit.union(s) = s
+    sit.union(s_diff) = s
+    cardinality_is_implies_is_finite(s, n_s)
+    difference_is_finite_of_finite(s, sit)
+    cardinality_always_exists(s_diff)
+    let n_s_diff: Nat satisfy {
+        s_diff.cardinality_is(n_s_diff)
+    }
+    sit.union(s_diff).cardinality_is(n_inter + n_s_diff)
+
+    // T is disjoint from (S \ (S \cap T))
+    forall (x: K) {
+        s_diff.contains(x) implies not sit.contains(x)
+        if t.contains(x) {
+            if s_diff.contains(x) {
+                s.contains(x)
+                sit.contains(x)
+            }
+        }
+        not (t.contains(x) and s_diff.contains(x))
+    }
+    t.is_disjoint(s_diff)
+
+    t.union(s_diff).cardinality_is(n_t + n_s_diff)
+    t.union(s_diff) = t.union(s)
+    t.union(s) = s.union(t)
+    n_t + n_s_diff = n_t + n_s - n_inter
+}
+
+theorem set_has_exact_containing_list[K](s: Set[K]) {
+    s.is_finite implies exists(containing_list: List[K]) {
+        forall(x: K) {
+            s.contains(x) = containing_list.contains(x)
+        } and containing_list.is_unique
+    }
+} by {
+
+    let (superset: List[K]) satisfy {
+        forall(x: K) {
+            s.contains(x) implies superset.contains(x)
+        }
+    }
+
+    let filtered = superset.filter(s.contains).unique
+
+    forall(x: K) {
+        filtered.contains(x) implies s.contains(x)
+        s.contains(x) = filtered.contains(x)
+    }
+}

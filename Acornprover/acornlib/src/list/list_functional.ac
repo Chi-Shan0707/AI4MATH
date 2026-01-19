@@ -1,0 +1,332 @@
+from nat.lattice import Nat
+from nat.nat_base import sub_one_sub_lt
+from list.list_sum import List, list_extensionality, map, partial, sum
+from add_comm_monoid import AddCommMonoid
+from option import Option
+
+numerals Nat
+
+// This file contains functional-programming-style things for lists.
+
+define fold_left[T, U](list: List[T], f: (U, T) -> U, init: U) -> U {
+    match list {
+        List.nil {
+            init
+        }
+        List.cons(head, tail) {
+            fold_left(tail, f, f(init, head))
+        }
+    }
+}
+
+define fold_right[T, U](list: List[T], f: (T, U) -> U, init: U) -> U {
+    match list {
+        List.nil {
+            init
+        }
+        List.cons(head, tail) {
+            f(head, fold_right(tail, f, init))
+        }
+    }
+}
+
+/// Reverses a list.
+define reverse[T](list: List[T]) -> List[T] {
+    match list {
+        List.nil {
+            List.nil[T]
+        }
+        List.cons(head, tail) {
+            reverse(tail).append(head)
+        }
+    }
+}
+
+theorem reverse_length[T](list: List[T]) {
+    reverse(list).length = list.length
+} by {
+    define p(l: List[T]) -> Bool {
+        reverse(l).length = l.length
+    }
+
+    // Base case: empty list
+
+    // Induction
+    forall(head: T, tail: List[T]) {
+        if p(tail) {
+            // Induction hypothesis: reverse(tail).length = tail.length
+            p(tail) implies reverse[T](tail).length = tail.length
+            // Use add_length theorem
+            (reverse(tail) + List.singleton(head)).length = reverse(tail).length + List.singleton(head).length
+            reverse[T](tail) + List.singleton(head) = reverse[T](tail).append(head)
+            reverse[T](tail).length + List.singleton(head).length = List.singleton(head).length + reverse[T](tail).length
+            List.cons(head, List.nil[T]) = List.singleton(head)
+            Nat.1 + tail.length = tail.length.suc
+            List.cons(head, List.nil[T]).length = List.nil[T].length.suc
+            List.cons(head, tail).length = tail.length.suc
+            reverse[T](tail).append(head) = reverse[T](List.cons(head, tail))
+            p(List.cons(head, tail))
+        }
+    }
+
+    List.induction(function (l: List[T]) {
+        p(l)
+    })
+}
+
+theorem reverse_add[T](list1: List[T], list2: List[T]) {
+    reverse(list1 + list2) = reverse(list2) + reverse(list1)
+} by {
+    define p(l1: List[T]) -> Bool {
+        reverse(l1 + list2) = reverse(list2) + reverse(l1)
+    }
+
+    // Base case: empty list
+    p(List.nil[T])
+
+    // Induction
+    forall(head: T, tail: List[T]) {
+        if p(tail) {
+            // Induction hypothesis: reverse(tail + list2) = reverse(list2) + reverse(tail)
+            List.cons(head, tail) + list2 = List.cons(head, tail + list2)
+            reverse(tail + list2) + List.singleton(head) = reverse(tail + list2).append(head)
+            reverse(tail + list2).append(head) = reverse(List.cons(head, tail + list2))
+            reverse(list2) + reverse(tail) = reverse(tail + list2)
+            reverse(list2) + (reverse(tail) + List.singleton(head)) = reverse(list2) + reverse(tail) + List.singleton(head)
+            reverse(tail) + List.singleton(head) = reverse(tail).append(head)
+            reverse(tail).append(head) = reverse(List.cons(head, tail))
+            reverse(List.cons(head, tail) + list2) = reverse(list2) + reverse(List.cons(head, tail))
+        }
+    }
+
+    List.induction(function (l: List[T]) {
+        p(l)
+    })
+}
+
+theorem reverse_involution[T](list: List[T]) {
+    reverse(reverse(list)) = list
+} by {
+    define p(l: List[T]) -> Bool {
+        reverse(reverse(l)) = l
+    }
+
+    // Base case: empty list
+    p(List.nil[T])
+
+    // Induction
+    forall(head: T, tail: List[T]) {
+        if p(tail) {
+            // Induction hypothesis: reverse(reverse(tail)) = tail
+            reverse(List.singleton(head)) + reverse(reverse(tail)) = List.singleton(head) + tail
+            p(List.cons(head, tail))
+        }
+    }
+
+    List.induction(function (l: List[T]) {
+        p(l)
+    })
+}
+
+theorem reverse_contains[T](list: List[T], item: T) {
+    reverse(list).contains(item) = list.contains(item)
+} by {
+    define p(l: List[T]) -> Bool {
+        reverse(l).contains(item) = l.contains(item)
+    }
+
+    // Base case: empty list
+
+    // Induction
+    forall(head: T, tail: List[T]) {
+        if p(tail) {
+            // Induction hypothesis: reverse(tail).contains(item) = tail.contains(item)
+            reverse(List.cons(head, tail)).contains(item) = (reverse(tail) + List.singleton(head)).contains(item)
+
+            // Show both directions of the equivalence
+            if (reverse(tail) + List.singleton(head)).contains(item) {
+                p(tail) implies reverse[T](tail).contains(item) = tail.contains(item)
+                (reverse[T](tail) + List.cons(head, List.nil[T])).contains(item) implies reverse[T](tail).contains(item) or List.cons(head, List.nil[T]).contains(item)
+                List.cons(head, List.nil[T]) = List.singleton(head)
+                List.cons(head, List.nil[T]).contains(item) implies (List.cons(head, List.nil[T]) + tail).contains(item)
+                List.nil[T] + tail = tail
+                List.cons(head, List.nil[T]) + tail = List.cons(head, List.nil[T] + tail)
+                not tail.contains(item) or List.cons(head, tail).contains(item) or head = item
+                if reverse(tail).contains(item) {
+                } else {
+                }
+                List.cons(head, tail).contains(item)
+            }
+
+            if List.cons(head, tail).contains(item) {
+                if head = item {
+                } else {
+                }
+                (reverse(tail) + List.singleton(head)).contains(item)
+            }
+
+            // Both directions established, so equality holds
+            (reverse(tail) + List.singleton(head)).contains(item) = List.cons(head, tail).contains(item)
+            reverse(List.cons(head, tail)).contains(item) = List.cons(head, tail).contains(item)
+            p(List.cons(head, tail))
+        }
+    }
+
+    List.induction(function (l: List[T]) {
+        p(l)
+    })
+}
+
+/// The element at index idx in a reversed list is the element at index (length - 1 - idx) in the original list.
+theorem reverse_get_idx[T](list: List[T], idx: Nat) {
+    idx < list.length implies reverse(list).get_idx(idx) = list.get_idx(list.length - 1 - idx)
+} by {
+    define p(l: List[T]) -> Bool {
+        idx < l.length implies reverse(l).get_idx(idx) = l.get_idx(l.length - 1 - idx)
+    }
+
+    // Base case: empty list has length 0, so idx < 0 is false
+    p(List.nil[T])
+
+    // Induction
+    forall(head: T, tail: List[T]) {
+        if p(tail) {
+            if idx < List.cons(head, tail).length {
+
+                if idx < tail.length {
+                    // Case 1: idx is in the reversed tail part
+                    idx < reverse(tail).length
+
+                    // Show tail.get_idx(tail.length - 1 - idx) = List.cons(head, tail).get_idx(tail.length.suc - 1 - idx)
+                    // We have tail.length.suc - 1 - idx = (tail.length + 1) - 1 - idx = tail.length - idx
+                    // And tail.length - idx > 0 (since idx < tail.length)
+                    // So List.cons(head, tail).get_idx(tail.length - idx) = tail.get_idx(tail.length - idx - 1)
+                    // And we need to show tail.length - idx - 1 = tail.length - 1 - idx
+
+                    // Use sub_comm: (tail.length - idx) - 1 = (tail.length - 1) - idx
+                    tail.length.suc - 1 - idx = tail.length - idx
+                    tail.length - idx > 0
+                    List.cons(head, tail).get_idx(tail.length - idx) = tail.get_idx(tail.length - idx - 1)
+
+                    tail.get_idx(tail.length - idx - 1) = tail.get_idx(tail.length - 1 - idx)
+                    List.cons(head, tail).get_idx(tail.length.suc - 1 - idx) = tail.get_idx(tail.length - 1 - idx)
+
+                    // Connect to the induction hypothesis
+                    reverse(tail).get_idx(idx) = tail.get_idx(tail.length - 1 - idx)
+
+                    // The append doesn't affect indices < reverse(tail).length
+                    (reverse(tail) + List.singleton(head)).get_idx(idx) = reverse(tail).get_idx(idx)
+
+                    // Show that length expressions are equal
+                    List.cons(head, tail).length - 1 - idx = tail.length.suc - 1 - idx
+                    List.cons(head, tail).get_idx(List.cons(head, tail).length - 1 - idx) = tail.get_idx(tail.length - 1 - idx)
+
+                    reverse(List.cons(head, tail)).get_idx(idx) = List.cons(head, tail).get_idx(List.cons(head, tail).length - 1 - idx)
+                    p(List.cons(head, tail))
+                } else {
+                    // Case 2: idx = tail.length
+                    (reverse(tail) + List.singleton(head)).get_idx(tail.length) = Option.some(head)
+                    List.cons(head, tail).get_idx(0) = Option.some(head)
+
+                    // Show tail.length.suc - 1 - tail.length = 0
+                    tail.length - tail.length = 0
+
+                    reverse(List.cons(head, tail)).get_idx(idx) = List.cons(head, tail).get_idx(List.cons(head, tail).length - 1 - idx)
+                    p(List.cons(head, tail))
+                }
+
+                p(List.cons(head, tail))
+            }
+            p(List.cons(head, tail))
+        }
+    }
+
+    List.induction(function (l: List[T]) {
+        p(l)
+    })
+}
+
+/// Helper lemma: reverse(n.range) and map(n.range, {n-1-i}) agree at every index.
+theorem range_reverse_map_get_idx(n: Nat, idx: Nat) {
+    idx < n implies reverse(n.range).get_idx(idx) = map(n.range, function(i: Nat) { n - 1 - i }).get_idx(idx)
+} by {
+    if idx < n {
+        if n = 0 {
+            // idx < 0 is impossible, so this case is vacuous
+        } else {
+            // n > 0 case
+
+            // Apply reverse_get_idx theorem
+
+            // Use sub_one_sub_lt to show n - 1 - idx < n
+            sub_one_sub_lt(n, idx)
+
+            // Apply range_idx_eq_idx theorem
+            n.range.get_idx(n - 1 - idx) = Option.some(n - 1 - idx)
+
+            // Apply map_range theorem
+            map(n.range, function(i: Nat) { n - 1 - i }).get_idx(idx) = Option.some((n - 1) - idx)
+
+            // Both sides equal Option.some(n - 1 - idx)
+            reverse(n.range).get_idx(idx) = map(n.range, function(i: Nat) { n - 1 - i }).get_idx(idx)
+        }
+    }
+}
+
+/// The reverse of n.range equals mapping the subtraction function over n.range.
+/// In other words, [0, 1, 2, ..., n-1] reversed equals [n-1, n-2, ..., 1, 0],
+/// which is the same as mapping i to (n-1-i) over the original range.
+theorem range_reverse_map(n: Nat) {
+    reverse(n.range) = map(n.range, function(i: Nat) { n - 1 - i })
+} by {
+    if n = 0 {
+        // Base case: 0.range = [], and both sides equal []
+    } else {
+        // n > 0 case
+
+        // Both lists have the same length
+        n.range.length = n
+        map(n.range, function(i: Nat) { n - 1 - i }).length = n.range.length
+
+        // They agree at every index by the helper lemma
+        forall(idx: Nat) {
+            if idx < reverse(n.range).length {
+                range_reverse_map_get_idx(n, idx)
+                reverse(n.range).get_idx(idx) = map(n.range, function(i: Nat) { n - 1 - i }).get_idx(idx)
+            }
+        }
+
+        // Apply list extensionality to conclude the lists are equal
+        reverse(n.range).length = map(n.range, function(i: Nat) { n - 1 - i }).length
+        list_extensionality(reverse(n.range), map(n.range, function(i: Nat) { n - 1 - i }))
+        reverse(n.range) = map(n.range, function(i: Nat) { n - 1 - i })
+    }
+}
+
+/// The sum is invariant under list reversal.
+theorem sum_reverse[A: AddCommMonoid](list: List[A]) {
+    sum(reverse(list)) = sum(list)
+} by {
+    define p(l: List[A]) -> Bool {
+        sum(reverse(l)) = sum(l)
+    }
+
+    // Base case: empty list
+
+    // Inductive step
+    forall(head: A, tail: List[A]) {
+        if p(tail) {
+            // Induction hypothesis: sum(reverse(tail)) = sum(tail)
+            p(tail) implies sum[A](reverse[A](tail)) = sum[A](tail)
+            sum[A](reverse[A](tail).append(head)) = sum[A](reverse[A](tail)) + head
+            sum[A](tail) + head = head + sum[A](tail)
+            reverse[A](tail).append(head) = reverse[A](List.cons(head, tail))
+            head + sum[A](tail) = sum[A](List.cons(head, tail))
+            p(List.cons(head, tail))
+        }
+    }
+
+    List.induction(function (l: List[A]) {
+        p(l)
+    })
+}

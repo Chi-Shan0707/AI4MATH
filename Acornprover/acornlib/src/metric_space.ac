@@ -1,0 +1,105 @@
+from real import Real
+numerals Real
+
+/// A metric space is a set equipped with a distance function that satisfies specific axioms.
+/// The distance function must be non-negative, symmetric, and satisfy the triangle inequality.
+typeclass M: MetricSpace {
+    /// Every metric space must have a distance function
+    distance: (M, M) -> Real
+
+    /// Rule: the distance from a point to itself is zero
+    self_distance_is_zero(x: M) {
+        x.distance(x) = 0
+    }
+
+    /// Rule: distance zero means the points are equal
+    dist_zero_imp_eq(x: M, y: M) {
+        x.distance(y) = 0 implies x = y
+    }
+
+    /// Rule: distance must be symmetric
+    symmetric(x: M, y: M) {
+        x.distance(y) = y.distance(x)
+    }
+
+    /// Rule: distance must satisfy the triangle inequality
+    triangle(x: M, y: M, z: M) {
+        x.distance(z) <= x.distance(y) + y.distance(z)
+    }
+}
+
+theorem distance_non_negative[M: MetricSpace](x: M, y: M) {
+    not x.distance(y).is_negative
+} by {
+    0 <= x.distance(y) + x.distance(y)
+}
+
+/// The discrete metric assigns distance 0 to identical elements and distance 1 to distinct elements.
+define discrete[T](x: T, y: T) -> Real {
+    if x = y {
+        0
+    } else {
+        1
+    }
+}
+
+theorem zero_lte_discrete[T](x: T, y: T) {
+    0 <= discrete(x, y)
+} by {
+    if x = y {
+        discrete(x, y) = 0
+        0 <= 0
+        0 <= discrete(x, y)
+    } else {
+        discrete(x, y) = 1
+        0 <= 1
+        0 <= discrete(x, y)
+    }
+}
+
+theorem discrete_self_distance_is_zero[T](x: T) {
+    discrete(x, x) = 0
+}
+
+theorem discrete_dist_zero_imp_eq[T](x: T, y: T) {
+    discrete(x, y) = 0 implies x = y
+}
+
+theorem discrete_symmetric[T](x: T, y: T) {
+    discrete(x, y) = discrete(y, x)
+} by {
+    if x = y {
+    } else {
+        discrete(x, y) = discrete(y, x)
+    }
+}
+
+theorem discrete_triangle[T](x: T, y: T, z: T) {
+    discrete(x, z) <= discrete(x, y) + discrete(y, z)
+} by {
+    if x = y {
+    } else {
+        0 <= discrete(y, z)
+        if x = z {
+            discrete(x, z) <= discrete(x, y) + discrete(y, z)
+        } else {
+            discrete(x, z) <= discrete(x, y) + discrete(y, z)
+        }
+    }
+}
+
+/// A simple enumeration type used as an example of a metric space with the discrete metric.
+inductive Color {
+    /// Red means nothing. It's just different from green and blue.
+    red
+
+    /// Green is not red or blue.
+    green
+
+    /// Blue is not red or green.
+    blue
+}
+
+instance Color: MetricSpace {
+    let distance: (Color, Color) -> Real = discrete
+}

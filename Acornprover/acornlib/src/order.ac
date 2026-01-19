@@ -1,0 +1,161 @@
+from util import is_reflexive, is_transitive, is_antisymmetric
+from lte import LTE
+
+/// A partial order is a relation that is reflexive, transitive, and antisymmetric.
+/// Not all elements need to be comparable.
+typeclass P: PartialOrder extends LTE {
+    /// The order relation must be reflexive: every element is `≤` itself.
+    reflexive {
+        is_reflexive(P.lte)
+    }
+
+    /// The order relation must be transitive: if `a ≤ b` and `b ≤ c`, then `a ≤ c`.
+    transitive {
+        is_transitive(P.lte)
+    }
+
+    /// The order relation must be antisymmetric: if `a ≤ b` and `b ≤ a`, then `a = b`.
+    antisymmetric {
+        is_antisymmetric(P.lte)
+    }
+}
+
+attributes P: PartialOrder {
+    /// Strict less-than comparison.
+    define lt(self, other: P) -> Bool {
+        self <= other and self != other
+    }
+
+    /// Greater-than-or-equal-to comparison.
+    define gte(self, other: P) -> Bool {
+        other <= self
+    }
+
+    /// Strict greater-than comparison.
+    define gt(self, other: P) -> Bool {
+        other < self
+    }
+}
+
+/// A linear order (total order) is a partial order where all elements are comparable.
+typeclass L: LinearOrder extends PartialOrder {
+    /// All elements are comparable: for any two elements `a` and `b`, either `a ≤ b` or `b ≤ a`.
+    totality(a: L, b: L) {
+        a <= b or b <= a
+    }
+}
+
+attributes L: LinearOrder {
+    /// Yields the smaller of two elements.
+    define min(self, other: L) -> L {
+        if self <= other {
+            self
+        } else {
+            other
+        }
+    }
+
+    /// Yields the larger of two elements.
+    define max(self, other: L) -> L {
+        if other <= self {
+            self
+        } else {
+            other
+        }
+    }
+}
+
+theorem max_imp_gte[L: LinearOrder](a: L, b: L) {
+    a.max(b) >= a and a.max(b) >= b
+} by {
+    // Funny that the prover needs help here (says Prover status: Exhausted?)
+    if a.max(b) = b {
+        a.max(b) >= b
+    } else {
+        a.max(b) >= b
+    }
+}
+
+theorem min_imp_lte[L: LinearOrder](a: L, b: L) {
+    a.min(b) <= a and a.min(b) <= b
+} by {
+    if a.min(b) = a {
+        a.min(b) <= b
+    } else {
+        a.min(b) <= b
+    }
+}
+
+theorem lt_imp_min[L: LinearOrder](a: L, b: L) {
+    a < b implies a.min(b) = a
+}
+
+theorem not_lt_imp_min[L: LinearOrder](a: L, b: L) {
+    not a < b implies a.min(b) = b
+}
+
+theorem gt_imp_min[L: LinearOrder](a: L, b: L) {
+    a > b implies a.min(b) = b
+}
+
+theorem not_gt_imp_min[L: LinearOrder](a: L, b: L) {
+    not a > b implies a.min(b) = a
+}
+
+theorem gte_imp_min[L: LinearOrder](a: L, b: L) {
+    a >= b implies a.min(b) = b
+}
+
+theorem not_gte_imp_min[L: LinearOrder](a: L, b: L) {
+    not a >= b implies a.min(b) = a
+}
+
+theorem lt_imp_max[L: LinearOrder](a: L, b: L) {
+    a < b implies a.max(b) = b
+}
+
+theorem not_lt_imp_max[L: LinearOrder](a: L, b: L) {
+    not a < b implies a.max(b) = a
+}
+
+theorem gt_imp_max[L: LinearOrder](a: L, b: L) {
+    a > b implies a.max(b) = a
+}
+
+theorem not_gt_imp_max[L: LinearOrder](a: L, b: L) {
+    not a > b implies a.max(b) = b
+}
+
+theorem gte_imp_max[L: LinearOrder](a: L, b: L) {
+    a >= b implies a.max(b) = a
+}
+
+theorem not_gte_imp_max[L: LinearOrder](a: L, b: L) {
+    not a >= b implies a.max(b) = b
+}
+
+theorem min_is_one[L: LinearOrder](a: L, b: L) {
+    a.min(b) = a or a.min(b) = b
+}
+
+theorem max_is_one[L: LinearOrder](a: L, b: L) {
+    a.max(b) = a or a.max(b) = b
+}
+
+theorem min_symm[L: LinearOrder](a: L, b: L) {
+    a.min(b) = b.min(a)
+} by {
+    if a <= b {
+    } else {
+        b.min(a) = a.min(b)
+    }
+}
+
+theorem max_symm[L: LinearOrder](a: L, b: L) {
+    a.max(b) = b.max(a)
+} by {
+    if a <= b {
+    } else {
+        b.max(a) = a.max(b)
+    }
+}

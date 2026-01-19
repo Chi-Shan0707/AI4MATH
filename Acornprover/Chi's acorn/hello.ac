@@ -2,5 +2,5 @@ from nat import Nat
 
 // Simple theorem about inequality
 theorem hello_world(a: Nat, b: Nat) {
-    a < b implies a < b
+    a < b implies a != b
 }
